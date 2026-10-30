@@ -18,6 +18,7 @@ paginas = {
         st.Page("vistas/sistema_experto.py", title="2 · Sistema experto", icon=":material/rule:"),
         st.Page("vistas/evolutivo.py", title="3 · Estrategia evolutiva", icon=":material/genetics:"),
         st.Page("vistas/juegos.py", title="3 · Teoría de juegos", icon=":material/swords:"),
+        st.Page("vistas/juego.py", title="3 · Juego Brecha Nequi", icon=":material/sports_esports:"),
         st.Page("vistas/difuso.py", title="4 · Lógica difusa", icon=":material/blur_on:"),
     ],
     "Calidad": [

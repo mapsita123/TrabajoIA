@@ -1,0 +1,1134 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Brecha Nequi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: un escenario de acción (canvas) arriba, controlado por teclado; debajo, los diálogos de los dos personajes y el marcador de la misión.
+   El ninja avanza, salta y ataca; el Guardián responde. Los conceptos del notebook son las reglas del escenario y se desbloquean en un cuaderno. */
+:root{
+  --bg:#0a0c14; --panel:#12111c; --panel2:#0d0c16; --border:#2a2640;
+  --fg:#eee9fb; --fg-dim:#aaa3c8; --fg-mute:#8a82ad;
+  --nequi:#b23fd1; --nequi2:#ff5fae; --gold:#ffcc4d; --dmg:#ff5a6e; --ok:#35e2a0; --info:#4fb4ff;
+  --ground:#1a1730; --sky1:#1c1430; --sky2:#0a0c14; --on-accent:#ffffff;
+  --display:'Fraunces',Georgia,serif; --body:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f4f1f7; --panel:#ffffff; --panel2:#ece7f1; --border:#d9d1e3;
+    --fg:#211a2e; --fg-dim:#4f4862; --fg-mute:#70688a;
+    --nequi:#9c23bd; --nequi2:#c42a74; --gold:#a87708; --dmg:#c22f45; --ok:#0f7d52; --info:#1a63c0;
+    --ground:#ddd1e6; --sky1:#efe6f5; --sky2:#f4f1f7;
+    color-scheme:light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#f4f1f7; --panel:#ffffff; --panel2:#ece7f1; --border:#d9d1e3;
+  --fg:#211a2e; --fg-dim:#4f4862; --fg-mute:#70688a;
+  --nequi:#9c23bd; --nequi2:#c42a74; --gold:#a87708; --dmg:#c22f45; --ok:#0f7d52; --info:#1a63c0;
+  --ground:#ddd1e6; --sky1:#efe6f5; --sky2:#f4f1f7;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;font-weight:600}
+p{margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding-block:18px 56px}
+.eyebrow{text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:var(--nequi2);font-weight:600;margin-bottom:6px}
+.top h1{font-size:clamp(26px,4.4vw,38px);line-height:1.08;background:linear-gradient(90deg,var(--nequi),var(--nequi2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.top p{color:var(--fg-dim);max-width:700px;margin-top:6px}
+.mnav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);display:flex;gap:6px;overflow-x:auto;padding:10px 0;margin:12px 0;border-bottom:1px solid var(--border)}
+.mchip{flex:0 0 auto;background:var(--panel);color:var(--fg-dim);border:1px solid var(--border);border-radius:10px;padding:7px 13px;font:inherit;font-weight:600;font-size:13px;cursor:pointer;text-align:left;line-height:1.25}
+.mchip small{display:block;font:400 10.5px var(--mono);color:var(--fg-mute);margin-top:2px}
+.mchip kbd{margin-right:4px}
+.mchip[aria-selected="true"]{color:var(--on-accent);background:linear-gradient(90deg,var(--nequi),var(--nequi2));border-color:transparent}
+.mchip[aria-selected="true"] small{color:var(--on-accent);opacity:.85}
+.mchip.done:not([aria-selected="true"]){border-color:var(--ok)}
+.mchip.done small::after{content:" ✓"}
+button:focus-visible,input:focus-visible,select:focus-visible,canvas:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+kbd{background:var(--panel2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-family:var(--mono);font-size:.92em;color:var(--fg)}
+.mchip[aria-selected="true"] kbd{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.35);color:var(--on-accent)}
+
+/* ---- arena ---- */
+.cvwrap{position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--border);background:var(--sky2)}
+canvas#cv{display:block;width:100%;touch-action:none;cursor:pointer}
+.keysline{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:12px;color:var(--fg-mute);margin:8px 0}
+.keysline span{display:inline-flex;gap:4px;align-items:center}
+.touch{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.touch button{flex:1 1 70px;min-height:44px;background:var(--panel);border:1px solid var(--border);border-radius:10px;color:var(--fg);font:600 13px var(--body);cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none}
+.touch button:active{background:var(--panel2);border-color:var(--nequi2)}
+.talk{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+@media (max-width:700px){.talk{grid-template-columns:minmax(0,1fr)}}
+.line{border-radius:12px;padding:9px 12px;font-size:13px;background:var(--panel);border:1px solid var(--border);min-height:48px;color:var(--fg-dim)}
+.line b{display:block;font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+.line.n b{color:var(--dmg)} .line.g b{color:var(--info)}
+.line.pop{animation:popl .5s ease}
+@keyframes popl{0%{box-shadow:0 0 0 2px var(--gold)}100%{box-shadow:0 0 0 0 transparent}}
+.line em{font-style:normal;color:var(--fg);font-weight:500}
+
+/* ---- misiones ---- */
+.mis{margin-top:18px}
+.mh{margin-bottom:12px}
+.mh h2{font-size:clamp(20px,3vw,26px);margin-bottom:4px}
+.mh p{color:var(--fg-dim);max-width:760px}
+.goal{display:inline-block;margin-top:8px;font:600 12px var(--mono);padding:4px 10px;border-radius:99px;border:1px solid var(--gold);color:var(--gold)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+@media (max-width:760px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;min-width:0}
+.panel h3{font-size:16px;margin-bottom:6px}
+.panel p{color:var(--fg-dim);font-size:13.5px}
+.panel p+p{margin-top:8px}
+.sub{font:600 12px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--fg-mute);margin:6px 0 8px}
+.fx{font:12.5px var(--mono);background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--fg);overflow-x:auto;white-space:nowrap}
+.fx b{color:var(--gold);font-weight:500}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.btn{background:linear-gradient(90deg,var(--nequi),var(--nequi2));color:var(--on-accent);border:none;border-radius:10px;padding:10px 18px;font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.btn:hover{filter:brightness(1.08)} .btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.ghost{background:none;border:1px solid var(--border);color:var(--fg)}
+.btn.sm{padding:6px 11px;font-size:12.5px}
+.btn.n{background:var(--dmg)} .btn.g{background:var(--info)}
+select,input[type=range]{font:inherit;color:var(--fg)}
+select{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:7px 10px}
+input[type=range]{width:100%;accent-color:var(--nequi2)}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--fg-mute)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--fg-dim);margin-top:6px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:5px}
+svg.chart{width:100%;max-width:560px;height:auto;display:block}
+svg .gl{stroke:var(--border);stroke-width:1}
+svg .tk{fill:var(--fg-mute);font:10px var(--mono)}
+svg .al{fill:var(--fg-dim);font:11px var(--body)}
+.chip{display:inline-block;font:600 11px var(--mono);padding:2px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--border);color:var(--fg-dim)}
+.chip.ok{color:var(--ok);border-color:var(--ok)} .chip.bad{color:var(--dmg);border-color:var(--dmg)} .chip.gold{color:var(--gold);border-color:var(--gold)} .chip.info{color:var(--info);border-color:var(--info)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}
+.kpi{background:var(--panel2);border:1px solid var(--border);border-radius:10px;padding:8px 11px}
+.kpi .l{font:600 10px var(--mono);text-transform:uppercase;color:var(--fg-mute);letter-spacing:.05em}
+.kpi .v{font:600 19px var(--display);font-variant-numeric:tabular-nums;margin-top:2px}
+.kpi .v.sm{font-size:14px}
+.crowd{display:grid;grid-template-columns:repeat(20,1fr);gap:4px;margin:8px 0}
+.crowd i{aspect-ratio:1;border-radius:50%;background:var(--info);opacity:.55}
+.crowd i.b{background:var(--dmg);opacity:1}
+.crowd i.e{background:var(--panel2);border:1px solid var(--border);opacity:1}
+.crowd i.det{background:var(--ok);opacity:1} .crowd i.pas{background:var(--gold);opacity:1}
+.stack{display:flex;height:16px;border-radius:99px;overflow:hidden;background:var(--panel2);border:1px solid var(--border);margin:6px 0}
+.stack>div{height:100%;transition:width .2s}
+.table{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 9px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font:600 10.5px var(--mono);text-transform:uppercase;letter-spacing:.05em;color:var(--fg-mute);white-space:nowrap}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.hud{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.hudc{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+.hudc .top2{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--fg-mute);margin-bottom:4px}
+.hudc .top2 b{color:var(--fg);font-variant-numeric:tabular-nums;font-size:12px}
+.track{height:7px;border-radius:99px;background:var(--panel2);overflow:hidden;border:1px solid var(--border)}
+.fill{height:100%;border-radius:99px;transition:width .5s ease}
+.chamber{margin-top:14px;border-color:var(--gold)}
+.stepper{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.stepper span{flex:1 1 90px;font:600 10.5px var(--mono);padding:5px 6px;border-radius:6px;background:var(--panel2);border:1px solid var(--border);color:var(--fg-mute);text-align:center}
+.stepper span.on{background:linear-gradient(90deg,var(--nequi),var(--nequi2));color:var(--on-accent);border-color:transparent}
+.stepper span.done{color:var(--ok);border-color:var(--ok)}
+.shields{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+.sh{display:flex;flex-direction:column;align-items:center;font:11px var(--mono);color:var(--fg-dim);padding:6px 8px;border-radius:8px;border:1px solid var(--border);background:var(--panel2)}
+.sh .ic{font-size:24px;line-height:1}
+.sh.best{border-color:var(--ok)} .sh.pick{border-color:var(--gold);box-shadow:0 0 0 1px var(--gold) inset} .sh.kid{border-color:var(--nequi2)}
+.sh.mini .ic{font-size:16px}
+.bars{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+.brow{display:grid;grid-template-columns:62px minmax(0,1fr) 58px;gap:8px;align-items:center;font:11.5px var(--mono);color:var(--fg-dim)}
+.bbar{height:12px;border-radius:4px;background:var(--panel2);overflow:hidden;border:1px solid var(--border)}
+.bbar>div{height:100%;border-radius:3px}
+.brow.mark .bbar{outline:2px solid var(--gold)}
+.brow.out{opacity:.4}
+.mx{border-collapse:separate;border-spacing:6px;width:100%;table-layout:fixed}
+.mx th{white-space:normal;text-align:center}
+.mx td{border:1px solid var(--border);border-radius:10px;background:var(--panel2);padding:11px 6px;text-align:center;position:relative;font:500 12.5px var(--mono)}
+.mx td .d{color:var(--info)} .mx td .a{color:var(--dmg)}
+.mx td.unk{color:var(--fg-mute);border-style:dashed}
+.mx td.last{outline:2px solid var(--gold)}
+.mx td .cnt{position:absolute;top:3px;right:6px;font:600 10px var(--mono);color:var(--gold)}
+.mx td.brd{box-shadow:inset 0 -3px 0 var(--info)} .mx td.bra{box-shadow:inset -3px 0 0 var(--dmg)} .mx td.brd.bra{box-shadow:inset 0 -3px 0 var(--info),inset -3px 0 0 var(--dmg)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.cc{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--panel);min-width:0}
+.cc.lock{background:var(--panel2);border-style:dashed}
+.cc .ref{font:600 10.5px var(--mono);color:var(--nequi2);letter-spacing:.05em}
+.cc h3{font-size:15px;margin:3px 0 4px}
+.cc p{font-size:12.5px;color:var(--fg-dim)}
+.cc.lock h3,.cc.lock p{color:var(--fg-mute)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom,0px));z-index:40;width:min(92vw,440px);background:var(--panel);border:1px solid var(--gold);border-radius:12px;padding:12px 14px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+.toast .ey{font:600 10.5px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--gold)}
+.toast h4{margin:2px 0 3px;font:600 16px var(--display)}
+.toast p{font-size:12.5px;color:var(--fg-dim)}
+ul.lim{margin:0;padding-left:18px;color:var(--fg-dim);font-size:13.5px;display:flex;flex-direction:column;gap:7px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Fundamentos de IA · Proyecto Nequi · juego de apoyo al notebook v3</div>
+    <h1>Brecha Nequi</h1>
+    <p>Un ninja quiere robar y el Guardián de Nequi lo detiene. Se juega con el teclado: avanza, salta y ataca. Lo que recoges, lo que te bloquean y lo que aprende el Guardián son los conceptos del notebook, y se desbloquean en tu cuaderno.</p>
+  </header>
+
+  <nav class="mnav" id="mnav" role="tablist" aria-label="Misiones">
+    <button class="mchip" role="tab" data-m="m1" aria-selected="true"><kbd>1</kbd>El precio de cada poder<small>corres de ninja</small></button>
+    <button class="mchip" role="tab" data-m="m2" aria-selected="false"><kbd>2</kbd>El umbral de Nequi<small>juegas de Guardián</small></button>
+    <button class="mchip" role="tab" data-m="m3" aria-selected="false"><kbd>3</kbd>El Guardián aprende<small>ninja vs. evolución</small></button>
+    <button class="mchip" role="tab" data-m="m4" aria-selected="false"><kbd>4</kbd>Duelo simultáneo<small>elige personaje</small></button>
+    <button class="mchip" role="tab" data-m="m5" aria-selected="false"><kbd>N</kbd>Cuaderno<small id="cnt">0 de 12 conceptos</small></button>
+  </nav>
+
+  <div id="arena">
+    <div class="cvwrap"><canvas id="cv" tabindex="0" aria-label="Escenario del juego. Haz clic para activar el teclado."></canvas></div>
+    <div class="keysline" id="keysline"></div>
+    <div class="touch" id="touch"></div>
+    <div class="talk">
+      <div class="line n" id="lnN"><b>🥷 Ninja</b><span></span></div>
+      <div class="line g" id="lnG"><b>🛡️ Guardián</b><span></span></div>
+    </div>
+  </div>
+
+  <!-- ============ MISIÓN 1 ============ -->
+  <section id="m1" class="mis">
+    <div class="mh">
+      <div class="eyebrow">Misión 1 · notebook §1 y §4</div>
+      <h2>El precio de cada poder</h2>
+      <p>Avanza por el corredor hasta el Guardián. Cada señal que recoges (F2–F9) sube el valor del golpe en +0.6 y también el puntaje de riesgo del arco de revisión. Cuando llegues, ataca. Si el puntaje supera el umbral, Nequi te bloquea.</p>
+      <span class="goal">Reto: roba 8 monedas en 6 intentos</span>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Marcador</h3>
+        <div class="kpis">
+          <div class="kpi"><div class="l">Intento</div><div class="v" id="m1n">0 / 6</div></div>
+          <div class="kpi"><div class="l">Botín del ninja</div><div class="v" id="m1botin" style="color:var(--gold)">0.0</div></div>
+          <div class="kpi"><div class="l">Bloqueos</div><div class="v" id="m1bl">0</div></div>
+        </div>
+        <p>Pistas del corredor: el arco se pone verde si tu puntaje está bajo el umbral y rojo si no. 🎭 es una trampa: si la recoges, la biometría falla. La mirada de red (F10) aparece al final y no la controlas.</p>
+      </div>
+      <div class="panel">
+        <h3>Lo que le cuesta a Nequi</h3>
+        <div class="fx" id="m1fx">Ataca una vez para ver el costo del Guardián.</div>
+        <div class="sub" style="margin-top:12px">Clientes legítimos que pasaron por la misma revisión</div>
+        <div class="crowd" id="m1crowd"></div>
+        <p id="m1crowdTxt" style="font-size:12.5px"></p>
+      </div>
+    </div>
+    <div class="panel" id="m1end" hidden style="margin-top:14px;border-color:var(--nequi)">
+      <h3 id="m1endT"></h3><p id="m1endP"></p>
+      <div class="btnrow"><button class="btn" id="m1restart">Reiniciar reto (R)</button></div>
+    </div>
+  </section>
+
+  <!-- ============ MISIÓN 2 ============ -->
+  <section id="m2" class="mis" hidden>
+    <div class="mh">
+      <div class="eyebrow">Misión 2 · notebook §4, §9 y §10</div>
+      <h2>El umbral de Nequi</h2>
+      <p>Ahora eres el Guardián. Las transacciones corren hacia ti: las rojas son del ninja y las azules son clientes. Sube o baja el hueco del escudo con ↑ y ↓. Lo que está por encima del hueco se bloquea. Si cierras demasiado, bloqueas clientes; si abres demasiado, dejas pasar fraude.</p>
+      <span class="goal">Reto: fija el umbral que menos cuesta contra cada ninja</span>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Ninja de turno: <span id="m2style" style="color:var(--dmg)"></span></h3>
+        <p id="m2desc"></p>
+        <label class="fld" style="margin-top:10px">Tu umbral: <b id="m2uLbl" style="color:var(--fg)"></b>
+          <input type="range" id="m2u" min="0.05" max="0.7" step="0.005" value="0.25" tabindex="-1"></label>
+        <div class="kpis">
+          <div class="kpi"><div class="l">Fraude atrapado</div><div class="v" id="m2rec"></div></div>
+          <div class="kpi"><div class="l">Clientes bloqueados</div><div class="v" id="m2fpr"></div></div>
+          <div class="kpi"><div class="l">Costo total</div><div class="v" id="m2cost" style="color:var(--dmg)"></div></div>
+        </div>
+        <div class="stack"><div id="m2sf" style="background:var(--dmg)"></div><div id="m2sp" style="background:var(--gold)"></div></div>
+        <div class="legend"><span><i style="background:var(--dmg)"></i>fraude que pasa (×2%)</span><span><i style="background:var(--gold)"></i>clientes bloqueados (×98%)</span></div>
+        <p style="font-size:12.5px;margin-top:8px">En pantalla 1 de cada 5 transacciones es fraude para que se vea el efecto. El costo usa la prevalencia real de 2%.</p>
+        <div class="btnrow">
+          <button class="btn g" id="m2fix">Fijar umbral (Enter)</button>
+          <button class="btn ghost" id="m2next" hidden>Siguiente ninja (Enter)</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Curva de costo</h3>
+        <p id="m2curveTxt">Fija tu umbral para ver la curva completa y compararte con el óptimo.</p>
+        <svg class="chart" id="m2chart" role="img" aria-label="Costo según el umbral"></svg>
+        <div class="legend" id="m2leg" hidden><span><i style="background:var(--dmg)"></i>costo</span><span><i style="background:var(--info)"></i>ESTRICTO 0.15</span><span><i style="background:var(--gold)"></i>LAXO 0.40</span></div>
+        <p id="m2fb" style="margin-top:8px"></p>
+      </div>
+    </div>
+    <div class="panel" id="m2sum" hidden style="margin-top:14px;border-color:var(--nequi)">
+      <h3>Lo que descubriste</h3>
+      <div class="table"><table id="m2tbl"></table></div>
+      <p id="m2sumTxt" style="margin-top:8px"></p>
+      <div class="btnrow"><label class="fld" style="max-width:260px">Explorar otro estilo de ninja
+        <select id="m2free"><option value="0">Sigiloso (0%)</option><option value="0.15">Moderado (15%)</option><option value="0.3">Agresivo (30%)</option></select></label></div>
+    </div>
+  </section>
+
+  <!-- ============ MISIÓN 3 ============ -->
+  <section id="m3" class="mis" hidden>
+    <div class="mh">
+      <div class="eyebrow">Misión 3 · notebook §3, §5 y §6</div>
+      <h2>El Guardián aprende</h2>
+      <p>Cada oleada es una carrera: recoge tus señales y ataca. El Guardián evalúa 60 transacciones tuyas y después evoluciona (cruce, mutación, selección μ+λ) para costar menos frente a tus últimas jugadas. Repetir la misma ruta tiene un precio. Desde la oleada 3 existe F10, que no controlas.</p>
+      <span class="goal">Reto: mantén el botín alto aunque el Guardián aprenda</span>
+    </div>
+    <div class="hud">
+      <div class="hudc"><div class="top2"><span>Oleada</span><b id="m3round">1 / 8</b></div><div class="track"><div class="fill" id="m3rf" style="width:12%;background:var(--nequi2)"></div></div></div>
+      <div class="hudc"><div class="top2"><span>Alerta de Nequi (recall)</span><b id="m3rec">—</b></div><div class="track"><div class="fill" id="m3recf" style="width:0%;background:var(--info)"></div></div></div>
+      <div class="hudc"><div class="top2"><span>Costo del Guardián</span><b id="m3cost">—</b></div><div class="track"><div class="fill" id="m3costf" style="width:0%;background:var(--dmg)"></div></div></div>
+      <div class="hudc"><div class="top2"><span>Botín total</span><b id="m3botin">0.0</b></div><div class="track"><div class="fill" id="m3botf" style="width:0%;background:var(--gold)"></div></div></div>
+    </div>
+    <div class="panel chamber" id="chamber" hidden>
+      <div class="eyebrow" style="color:var(--gold)">Cámara de evolución del Guardián</div>
+      <div class="stepper" id="chSteps"></div>
+      <div id="chBody"></div>
+      <div class="btnrow"><label style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--fg-dim)"><input type="checkbox" id="m3watch" checked tabindex="-1"> Ver la evolución paso a paso</label><span style="font-size:12.5px;color:var(--fg-mute)">Pulsa <kbd>Enter</kbd> para saltarla</span></div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Última oleada (60 fraudes)</h3>
+        <div class="crowd" id="m3dots"></div>
+        <div class="legend"><span><i style="background:var(--ok)"></i>detectado</span><span><i style="background:var(--gold)"></i>pasó</span></div>
+        <div class="fx" id="m3fx" style="margin-top:8px">Ataca para ver los números.</div>
+        <div class="btnrow"><label style="display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--fg-dim)"><input type="checkbox" id="m3watch2" checked tabindex="-1"> Mostrar la cámara de evolución</label></div>
+      </div>
+      <div class="panel">
+        <h3>Tu botín por oleada</h3>
+        <svg class="chart" id="m3chart" role="img" aria-label="Botín por oleada"></svg>
+        <h3 style="margin-top:10px">Costo del Guardián por oleada</h3>
+        <svg class="chart" id="m3chart2" role="img" aria-label="Costo del Guardián por oleada"></svg>
+        <p style="font-size:12.5px">Si repites la ruta, tu botín cae mientras el costo del Guardián baja y se asienta. Esa es la convergencia.</p>
+      </div>
+    </div>
+    <div class="panel" id="m3end" hidden style="margin-top:14px;border-color:var(--nequi)">
+      <h3 id="m3endT"></h3><p id="m3endP"></p>
+      <div class="btnrow"><button class="btn" id="m3reset">Jugar otra vez (R)</button></div>
+    </div>
+  </section>
+
+  <!-- ============ MISIÓN 4 ============ -->
+  <section id="m4" class="mis" hidden>
+    <div class="mh">
+      <div class="eyebrow">Misión 4 · notebook §10 a §12</div>
+      <h2>Duelo simultáneo</h2>
+      <p>Los dos eligen a la vez, sin ver al otro. Pulsa tu jugada y las cartas se revelan. El rival aprende de tus últimas 8 jugadas y responde lo mejor que puede: si te vuelves predecible, te explota. Con <kbd>D</kbd> tiras un dado con tu mezcla y con ← → la cambias. Son 24 rondas.</p>
+      <span class="goal">Reto: acércate al equilibrio sin que te exploten</span>
+    </div>
+    <div class="panel">
+      <div class="btnrow" style="margin-top:0">
+        <span class="chip">Juegas como</span>
+        <button class="btn ghost sm" id="roleN">Ninja</button>
+        <button class="btn ghost sm" id="roleG">Guardián</button>
+        <span style="font-size:12.5px;color:var(--fg-mute)">o pulsa <kbd>T</kbd> para cambiar</span>
+        <span style="margin-left:auto;font:600 12px var(--mono);color:var(--fg-mute)" id="m4prog"></span>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="panel">
+        <h3>Tu cuaderno de pagos</h3>
+        <p style="margin-bottom:6px"><span style="color:var(--info)">Azul</span>: pago de Nequi ×1000. <span style="color:var(--dmg)">Rojo</span>: pago del ninja. Las celdas se revelan cuando las juegas.</p>
+        <table class="mx" id="m4mx"></table>
+        <div class="btnrow"><button class="btn ghost sm" id="m4reveal" hidden>Revelar matriz completa (V)</button></div>
+        <div id="m4cycle" style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center"></div>
+      </div>
+      <div class="panel">
+        <h3>Tu frecuencia contra el equilibrio</h3>
+        <svg class="chart" id="m4chart" role="img" aria-label="Frecuencia de tu jugada por ronda"></svg>
+        <div class="legend"><span><i style="background:var(--nequi2)"></i>tu frecuencia acumulada</span><span><i style="background:var(--gold)"></i>equilibrio</span></div>
+        <div class="kpis" id="m4k"></div>
+      </div>
+    </div>
+    <div class="panel" id="m4end" hidden style="margin-top:14px;border-color:var(--nequi)">
+      <h3 id="m4endT"></h3><p id="m4endP"></p>
+    </div>
+  </section>
+
+  <!-- ============ CUADERNO ============ -->
+  <section id="m5" class="mis" hidden>
+    <div class="mh">
+      <div class="eyebrow">Cuaderno · notebook §1 a §14</div>
+      <h2>Lo que descubrieron el ninja y el Guardián</h2>
+      <p>Cada concepto se desbloquea al vivirlo en una misión. Las tarjetas bloqueadas dicen dónde encontrarlas. Pulsa 1 a 4 para volver a jugar.</p>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div class="sub" style="margin-top:18px">Límites que conviene declarar</div>
+    <div class="panel"><ul class="lim">
+      <li><b>Todo es simulado.</b> Prevalencia, beneficio por señal, costo de falso positivo y la probabilidad de F10 son supuestos del modelo.</li>
+      <li><b>Es una estrategia evolutiva.</b> Genes reales, σ autoadaptativo y selección (μ+λ). Con el cruce intermedio queda como un híbrido razonable; conviene nombrarlo así.</li>
+      <li><b>Las estrategias finales casi empatan en pago.</b> En la matriz 5×5 las diferencias son del tamaño del ruido. Por eso se reporta un ε-Nash validado y no un Nash puro.</li>
+      <li><b>El ε sale de mutantes aleatorios.</b> 200 mutantes dan una cota inferior de lo que ganaría un desvío óptimo.</li>
+      <li><b>El 2×2 es una simplificación.</b> Reutiliza los pesos del defensor evolucionado y fija el ninja agresivo en 30% uniforme; marca la dirección del equilibrio, no una igualdad exacta.</li>
+      <li><b>En este juego solo evoluciona el Guardián.</b> El ninja eres tú, no una población que se adapta con μ+λ; el juego ilustra el equilibrio sin demostrarlo.</li>
+    </ul></div>
+  </section>
+
+  <footer style="color:var(--fg-mute);font-size:11.5px;margin-top:30px;border-top:1px solid var(--border);padding-top:12px">Fundamentos de IA · Universidad EIA · basado en teoria_de_juegos_nequi_v3 y Brecha_Nequi.html. Los pagos de la Misión 4 son los de la sección 12 del notebook.</footer>
+</div>
+
+<div class="toast" id="toast" hidden>
+  <div class="ey">Concepto desbloqueado</div><h4 id="toastT"></h4><p id="toastP"></p>
+  <div class="btnrow" style="margin-top:8px"><button class="btn sm" id="toastGo">Ver en el cuaderno (N)</button><button class="btn ghost sm" id="toastX">Cerrar</button></div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const clip = (v,a,b) => Math.max(a,Math.min(b,v));
+const sum = a => a.reduce((x,y)=>x+y,0);
+const rand = Math.random;
+const normal = () => Math.sqrt(-2*Math.log(Math.max(rand(),1e-9)))*Math.cos(2*Math.PI*rand());
+const f = (n,d) => n.toFixed(d);
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(rand()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+const TS = window.__ts || 1;
+
+/* ------------------ modelo (parámetros del notebook) ------------------ */
+const P_LEGIT_CTRL=.04, P_LEGIT_F10=.05, P_F10=.40, PREV=.02, V0=1, BEN=.6, CFP=.15, MU=6, LAM=16;
+const NB={pesos:[.433,.318,.376,.356,.518,.352,.421,.388,.947], umbral:.254};   // mejor defensor, sección 7
+const WS=sum(NB.pesos), W10=NB.pesos[8]/WS;
+const POWERS=[
+  {icon:'🎭',name:'Biometría falsa'},{icon:'📱',name:'Dispositivo fantasma'},{icon:'⚡',name:'Ráfaga de velocidad'},
+  {icon:'🧬',name:'Clon de dispositivo'},{icon:'🚫',name:'Lista negra'},{icon:'📧',name:'Correo desechable'},
+  {icon:'🌐',name:'Salto de frontera'},{icon:'🔑',name:'Fuerza bruta OTP'},{icon:'☣️',name:'IP envenenada'}
+];
+function clasif(d,row){
+  if(row[0]) return true;
+  let s=0; for(let j=0;j<9;j++) if(row[j+1]) s+=d.pesos[j];
+  return s/Math.max(sum(d.pesos),1e-9) > d.umbral;
+}
+function genLegit(n){const o=[];for(let i=0;i<n;i++){const r=[];for(let j=0;j<9;j++)r.push(rand()<P_LEGIT_CTRL?1:0);r.push(rand()<P_LEGIT_F10?1:0);o.push(r);}return o;}
+function genFraude(p,n,pf10){const o=[];for(let i=0;i<n;i++){const r=[];for(let j=0;j<9;j++)r.push(rand()<p[j]?1:0);r.push(rand()<pf10?1:0);o.push(r);}return o;}
+function valorFila(r){let k=0;for(let j=1;j<9;j++)k+=r[j];return V0+BEN*k;}
+function comp(d,probs,n,pf10){
+  const L=genLegit(n),F=genFraude(probs,n,pf10);let fp=0,rob=0,vp=0;
+  F.forEach(r=>{ if(clasif(d,r)) vp++; else rob+=valorFila(r); });
+  L.forEach(r=>{ if(clasif(d,r)) fp++; });
+  const robado=rob/n, fpr=fp/n;
+  return {robado,fpr,recall:vp/n,costo:PREV*robado+(1-PREV)*CFP*fpr};
+}
+function costoVs(d,hist,n,pf10){let t=0;hist.forEach(p=>{t+=comp(d,p,n,pf10).costo;});return t/hist.length;}
+function crearDef(){return {pesos:Array.from({length:9},rand),umbral:rand(),sigma:.05+rand()*.25};}
+function cruzar(p1,p2){
+  const a=Array.from({length:10},rand);
+  return {pesos:p1.pesos.map((w,i)=>a[i]*w+(1-a[i])*p2.pesos[i]),umbral:a[9]*p1.umbral+(1-a[9])*p2.umbral,sigma:Math.sqrt(p1.sigma*p2.sigma),_a:a};
+}
+function mutar(p){
+  const tau=1/Math.sqrt(2*Math.sqrt(10));
+  const sigma=clip(p.sigma*Math.exp(tau*normal()),.01,.5);
+  const ru=Array.from({length:10},()=>normal()*sigma);
+  return {pesos:p.pesos.map((w,i)=>clip(w+ru[i],0,1)),umbral:clip(p.umbral+ru[9],0,1),sigma,_s0:p.sigma};
+}
+function pExacto(d,pc,pf10,pf1){
+  const w=d.pesos,thr=d.umbral*sum(w);let pass=0,loot=0;
+  for(let m=0;m<256;m++){
+    let k=0,s=0,pr=1;
+    for(let b=0;b<8;b++){ if((m>>b)&1){pr*=pc;k++;s+=w[b];} else pr*=1-pc; }
+    if(pr===0) continue;
+    for(let g=0;g<2;g++){
+      const pg=g?pf10:1-pf10; if(pg===0) continue;
+      if(s+(g?w[8]:0)<=thr){pass+=pr*pg;loot+=pr*pg*(V0+BEN*k);}
+    }
+  }
+  return {block:1-pass*(1-pf1),robado:loot*(1-pf1)};
+}
+function costoExacto(d,pc){
+  const fr=pExacto(d,pc,P_F10,0), lg=pExacto(d,P_LEGIT_CTRL,P_LEGIT_F10,P_LEGIT_CTRL);
+  const pf=PREV*fr.robado, pp=(1-PREV)*CFP*lg.block;
+  return {recall:fr.block,fpr:lg.block,robado:fr.robado,pf,pp,costo:pf+pp};
+}
+const FPR_NB=pExacto(NB,P_LEGIT_CTRL,P_LEGIT_F10,P_LEGIT_CTRL).block;
+
+/* ------------------ gráfica SVG ------------------ */
+function lineChart(svg,o){
+  const W=o.w||520,H=o.h||200,m={l:50,r:14,t:12,b:34};
+  const sx=x=>m.l+(x-o.xmin)/(o.xmax-o.xmin)*(W-m.l-m.r);
+  const sy=y=>H-m.b-(y-o.ymin)/(o.ymax-o.ymin)*(H-m.t-m.b);
+  let s='';
+  (o.yt||[]).forEach(t=>{s+=`<line class="gl" x1="${m.l}" x2="${W-m.r}" y1="${sy(t)}" y2="${sy(t)}"/><text class="tk" x="${m.l-6}" y="${sy(t)+3}" text-anchor="end">${o.yf?o.yf(t):t}</text>`;});
+  (o.xt||[]).forEach(t=>{s+=`<text class="tk" x="${sx(t)}" y="${H-m.b+14}" text-anchor="middle">${o.xf?o.xf(t):t}</text>`;});
+  if(o.xl) s+=`<text class="al" x="${(m.l+W-m.r)/2}" y="${H-4}" text-anchor="middle">${o.xl}</text>`;
+  (o.vl||[]).forEach(v=>{s+=`<line x1="${sx(v.x)}" x2="${sx(v.x)}" y1="${m.t}" y2="${H-m.b}" style="stroke:${v.c};stroke-width:1.5;stroke-dasharray:${v.dash||'0'}"/>`;});
+  (o.hl||[]).forEach(h=>{s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${sy(h.y)}" y2="${sy(h.y)}" style="stroke:${h.c};stroke-width:1.5;stroke-dasharray:${h.dash||'0'}"/>`;});
+  (o.series||[]).forEach(se=>{
+    if(!se.pts.length) return;
+    const d=se.pts.map((p,i)=>(i?'L':'M')+sx(p[0]).toFixed(1)+' '+sy(p[1]).toFixed(1)).join(' ');
+    s+=`<path d="${d}" fill="none" style="stroke:${se.c};stroke-width:2.2"/>`;
+    if(se.dots) se.pts.forEach(p=>{s+=`<circle cx="${sx(p[0])}" cy="${sy(p[1])}" r="3" style="fill:${se.c}"/>`;});
+  });
+  (o.dots||[]).forEach(d=>{s+=`<circle cx="${sx(d.x)}" cy="${sy(d.y)}" r="5" style="fill:${d.c};stroke:var(--bg);stroke-width:2"/>`;});
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.innerHTML=s;
+}
+
+/* ------------------ diálogo y cuaderno ------------------ */
+function say(who,html){
+  const li=$(who==='n'?'lnN':'lnG'); li.querySelector('span').innerHTML=html;
+  li.classList.remove('pop'); void li.offsetWidth; li.classList.add('pop');
+}
+const CARDS=[
+  {id:'pagos',m:1,ref:'§4',t:'Cada bando tiene su propio pago',x:'El ninja gana el valor robado. Nequi paga por el fraude que deja pasar y por los clientes legítimos que bloquea. Cada uno maximiza lo suyo.'},
+  {id:'tradeoff',m:1,ref:'§1, §4',t:'Cada poder da botín y riesgo',x:'Cada señal F2–F9 suma +0.6 al botín si el fraude pasa, pero suma peso al puntaje. Apagar todo roba poco; recoger mucho te bloquea.'},
+  {id:'f10',m:1,ref:'§1',t:'La señal que no controlas',x:'F10 (patrón de red) aparece en el 40% de los fraudes sin que el atacante pueda apagarla. Es la señal estructural del modelo.'},
+  {id:'nosuma0',m:2,ref:'§0, §4',t:'Suma no cero',x:'Si Nequi bloquea más, el ninja roba menos, pero Nequi también paga por cada cliente legítimo bloqueado. Lo que pierde uno no es lo que gana el otro, por eso se usa Nash y no Minimax.'},
+  {id:'mejorresp',m:2,ref:'§9, §10',t:'Mejor respuesta',x:'La mejor jugada de un bando depende de la del otro: ESTRICTO conviene contra un ninja agresivo; LAXO, contra uno sigiloso.'},
+  {id:'mulambda',m:3,ref:'§3, §5',t:'Estrategia evolutiva (μ+λ)',x:'Cruce intermedio, mutación gaussiana con σ autoadaptativo y selección entre padres e hijos: sobreviven los 6 mejores.'},
+  {id:'coev',m:3,ref:'§5',t:'Coevolución',x:'El fitness de cada Guardián es su pago contra tus últimos ataques. Si repites la jugada, se adapta y tu botín cae; si cambias, tiene que volver a aprender.'},
+  {id:'conv',m:3,ref:'§6',t:'Convergencia',x:'Los pagos se estabilizan, no mejoran siempre: cada bando mejora respecto del otro, y el otro también cambia.'},
+  {id:'ciclo',m:4,ref:'§10, §12',t:'Sin equilibrio en estrategias puras',x:'ESTRICTO → ninja sigiloso → LAXO → ninja agresivo → ESTRICTO. Siempre hay un bando que quiere cambiar, así que no existe un Nash puro.'},
+  {id:'mixto',m:4,ref:'§12',t:'Equilibrio mixto e indiferencia',x:'Cada bando mezcla para dejar al otro indiferente: P(ninja agresivo) = q* ≈ 0.213 y P(Nequi estricto) = p* ≈ 0.533. Ser predecible es ser explotable.'},
+  {id:'eps',m:4,ref:'§11',t:'ε-Nash',x:'Con pagos simulados no hay Nash exacto. Se mide cuánto puede ganar un jugador al desviarse (ε) y se valida con una muestra nueva.'},
+  {id:'semillas',m:3,ref:'§13',t:'Robustez por semillas',x:'Una corrida no basta. Cada partida termina con un Guardián distinto; lo que se sostiene es lo cualitativo.'}
+];
+const got={}; let toastTimer=null, active='m1';
+function unlock(id){
+  if(got[id]) return; got[id]=true;
+  const c=CARDS.find(x=>x.id===id); if(!c) return;
+  $('toastT').textContent=c.t; $('toastP').textContent=c.x; $('toast').hidden=false;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{$('toast').hidden=true;},8000);
+  $('cnt').textContent=Object.keys(got).length+' de '+CARDS.length+' conceptos';
+  if(active==='m5') renderCards();
+}
+$('toastX').addEventListener('click',()=>{$('toast').hidden=true;});
+$('toastGo').addEventListener('click',()=>{$('toast').hidden=true;go('m5');});
+function renderCards(){
+  $('cards').innerHTML=CARDS.map(c=>got[c.id]
+    ?`<div class="cc"><div class="ref">NOTEBOOK ${c.ref}</div><h3>${c.t}</h3><p>${c.x}</p></div>`
+    :`<div class="cc lock"><div class="ref">NOTEBOOK ${c.ref}</div><h3>???</h3><p>Se desbloquea jugando la misión ${c.m}.</p></div>`).join('');
+}
+
+/* =====================================================================
+   MOTOR: canvas, paleta, entrada, partículas
+   ===================================================================== */
+const cv=$('cv'), ctx=cv.getContext('2d');
+let CW=960, CH=360, GY=CH-56, DPR=1;
+const P={};
+function readPal(){const cs=getComputedStyle(document.documentElement);['bg','panel','panel2','border','fg','fg-dim','fg-mute','nequi','nequi2','gold','dmg','ok','info','ground','sky1','sky2'].forEach(k=>{P[k]=cs.getPropertyValue('--'+k).trim();});}
+function resize(){
+  const w=Math.max(300,Math.min(960,cv.parentElement.clientWidth||960));
+  CW=w; CH=w<560?300:(w<800?330:360); GY=CH-52; DPR=Math.min(2,window.devicePixelRatio||1);
+  cv.width=CW*DPR; cv.height=CH*DPR; cv.style.height=CH+'px'; ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize',resize);
+const STARS=Array.from({length:70},()=>({x:rand()*1400,y:rand()*220,r:rand()*1.4+.4}));
+const TOWERS=Array.from({length:26},(_,i)=>({x:i*130+rand()*40,w:50+rand()*60,h:60+rand()*120}));
+let T=0, hasFocus=false;
+const fx=[];
+function spawnFx(o){fx.push(Object.assign({life:1,vx:0,vy:0,g:0,age:0},o));}
+function updateFx(dt){for(let i=fx.length-1;i>=0;i--){const p=fx[i];p.age+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=p.g*dt;if(p.age>=p.life)fx.splice(i,1);}}
+function drawFx(cam){
+  fx.forEach(p=>{
+    const a=1-p.age/p.life, x=p.x-(p.world?cam:0);
+    ctx.globalAlpha=clip(a*1.4,0,1);
+    if(p.txt){ctx.fillStyle=p.col||P.gold;ctx.font=(p.size||16)+'px '+'"IBM Plex Sans",system-ui,sans-serif';ctx.textAlign='center';ctx.font='700 '+(p.size||16)+'px "IBM Plex Sans",system-ui,sans-serif';ctx.fillText(p.txt,x,p.y);}
+    else{ctx.fillStyle=p.col||P.gold;ctx.beginPath();ctx.arc(x,p.y,p.r||4,0,6.283);ctx.fill();}
+    ctx.globalAlpha=1;
+  });
+}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function emoji(ch,x,y,size,flip,alpha){
+  ctx.save(); ctx.globalAlpha=alpha===undefined?1:alpha; ctx.translate(x,y); if(flip) ctx.scale(-1,1);
+  ctx.font=size+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; ctx.textAlign='center'; ctx.textBaseline='alphabetic'; ctx.fillText(ch,0,0); ctx.restore();
+}
+function text(s,x,y,size,col,align,weight){ctx.fillStyle=col||P.fg;ctx.font=(weight||500)+' '+size+'px "IBM Plex Sans",system-ui,sans-serif';ctx.textAlign=align||'left';ctx.textBaseline='alphabetic';ctx.fillText(s,x,y);}
+function backdrop(cam){
+  const g=ctx.createLinearGradient(0,0,0,CH); g.addColorStop(0,P.sky1); g.addColorStop(1,P.sky2); ctx.fillStyle=g; ctx.fillRect(0,0,CW,CH);
+  ctx.fillStyle=P['fg-mute']; STARS.forEach(s=>{const x=((s.x-cam*.15)%1400+1400)%1400; if(x<CW){ctx.globalAlpha=.35;ctx.beginPath();ctx.arc(x,s.y*(GY/260),s.r,0,6.283);ctx.fill();}}); ctx.globalAlpha=1;
+  ctx.fillStyle=P.panel; ctx.globalAlpha=.7; TOWERS.forEach(t=>{const x=((t.x-cam*.35)%3380+3380)%3380-100; if(x<CW+100) ctx.fillRect(x,GY-t.h,t.w,t.h);}); ctx.globalAlpha=1;
+  ctx.fillStyle=P.ground; ctx.fillRect(0,GY,CW,CH-GY); ctx.fillStyle=P.border; ctx.fillRect(0,GY,CW,2);
+  ctx.strokeStyle=P.border; ctx.lineWidth=1; for(let x=-((cam)%60);x<CW;x+=60){ctx.beginPath();ctx.moveTo(x,GY+14);ctx.lineTo(x+30,GY+14);ctx.stroke();}
+}
+
+/* ---- entrada ---- */
+const keys={}, pad={};
+const held=(...n)=>n.some(k=>keys[k])||n.some(k=>pad[k]);
+let cur=null;
+function pressKey(k){ if(cur&&cur.press) cur.press(k); }
+window.addEventListener('keydown',e=>{
+  const tg=e.target, tn=(tg&&tg.tagName)||'';
+  const k=e.key.toLowerCase();
+  if(tn==='INPUT'&&tg.type==='range'&&(k==='arrowleft'||k==='arrowright')) tg.blur();
+  hasFocus=true;
+  if(k>='1'&&k<='4'&&!e.repeat&&tn!=='SELECT'){go('m'+k);e.preventDefault();return;}
+  if(k==='n'&&!e.repeat){go('m5');return;}
+  if(active==='m5') return;
+  if(['arrowleft','arrowright','arrowup','arrowdown',' ','enter'].indexOf(k)>-1){ if(tn!=='SELECT') e.preventDefault(); }
+  keys[k]=true;
+  if(!e.repeat) pressKey(k);
+});
+window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+window.addEventListener('blur',()=>{Object.keys(keys).forEach(k=>keys[k]=false);Object.keys(pad).forEach(k=>pad[k]=0);hasFocus=false;});
+cv.addEventListener('pointerdown',()=>{cv.focus();hasFocus=true;});
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button'); if(b&&!b.closest('.touch')) b.blur();});
+
+/* ---- panel táctil ---- */
+const TOUCH={
+  corr:[['left','◀',1],['right','▶',1],['up','Saltar',1],['attack','⚔ Atacar',0]],
+  thr:[['up','▲ Subir',1],['down','▼ Bajar',1],['confirm','Fijar / siguiente',0]],
+  duel:[['c1','',0],['c2','',0],['dice','🎲 Dado',0],['mixL','◀ mezcla',0],['mixR','mezcla ▶',0]]
+};
+const PADKEY={attack:' ',confirm:'enter',c1:'z',c2:'x',dice:'d',mixL:'arrowleft',mixR:'arrowright'};
+function setTouch(kind,labels){
+  const box=$('touch'); box.innerHTML='';
+  TOUCH[kind].forEach(([name,label,isHeld],i)=>{
+    const b=document.createElement('button'); b.type='button'; b.textContent=(labels&&labels[i])||label;
+    const on=ev=>{ev.preventDefault();hasFocus=true; if(isHeld) pad[name]=1; else pressKey(PADKEY[name]);}, off=()=>{if(isHeld) pad[name]=0;};
+    b.addEventListener('pointerdown',on); b.addEventListener('pointerup',off); b.addEventListener('pointerleave',off); b.addEventListener('pointercancel',off);
+    box.appendChild(b);
+  });
+}
+function setKeys(html){ $('keysline').innerHTML=html; }
+const K=s=>`<kbd>${s}</kbd>`;
+
+/* =====================================================================
+   CORREDOR (misiones 1 y 3): avanzar, saltar, recoger señales, atacar
+   ===================================================================== */
+const player={x:60,y:0,vy:0,face:1,onGround:true,t:0};
+const corr={len:2400,items:[],sel:Array(9).fill(0),state:'run',atk:0,gx:0,cfg:null,def:NB,beam:null,spy:false,lit:0,hintT:0,crowd:[],gsize:56,gbump:0,tag:'Guardián Nequi',arch:0};
+const SP=340, GRAV=1700, JUMPV=640;
+function corrReset(cfg){
+  corr.cfg=cfg; corr.len=cfg.len; corr.gx=cfg.len-130; corr.sel=Array(9).fill(0); corr.state='run'; corr.atk=0; corr.crowd=[]; corr.hintT=0;
+  player.x=60;player.y=0;player.vy=0;player.face=1;
+  corr.items=[]; shuffle([1,2,3,4,5,6,7,8]).forEach((id,k)=>corr.items.push({id,x:cfg.x0+k*cfg.gap,air:rand()<.5,taken:false}));
+  if(cfg.trapX) corr.items.push({id:0,x:cfg.trapX,air:rand()<.5,taken:false});
+  corr.beam=cfg.beam?{x:cfg.beamX,lit:rand()<P_F10,hit:false}:null;
+}
+function corrScore(){
+  const d=corr.def,w=d.pesos,ws=sum(w); let num=0,k=0;
+  for(let j=1;j<9;j++) if(corr.sel[j]){num+=w[j-1];k++;}
+  let f10=false; if(corr.beam&&corr.beam.hit&&corr.beam.lit){num+=w[8];f10=true;}
+  return {score:num/ws,k,f10,bio:!!corr.sel[0],thr:d.umbral};
+}
+function corrUpdate(dt){
+  const p=player; p.t+=dt;
+  if(corr.state==='run'){
+    const L=held('arrowleft','a','left'), R=held('arrowright','d','right'), J=held('arrowup','w','up');
+    if(L&&!R){p.x-=SP*dt;p.face=-1;} if(R&&!L){p.x+=SP*dt;p.face=1;}
+    p.x=clip(p.x,20,corr.len-60);
+    if(J&&p.onGround){p.vy=JUMPV;p.onGround=false;}
+  }
+  p.vy-=GRAV*dt; p.y+=p.vy*dt; if(p.y<=0){p.y=0;p.vy=0;p.onGround=true;}
+  if(corr.state==='run'){
+    corr.items.forEach(it=>{
+      if(it.taken) return;
+      const iy=GY-(it.air?118:26), py=GY-p.y-26;
+      if(Math.hypot(it.x-p.x,iy-py)<36){
+        it.taken=true; corr.sel[it.id]=1;
+        spawnFx({world:true,x:it.x,y:iy-20,vy:-60,life:.9,txt:it.id===0?'🎭 trampa':'+0.6',col:it.id===0?P.dmg:P.gold});
+        if(it.id===0) say('n','Recogí la biometría falsa. Si se detecta, el golpe falla siempre.');
+        else say('n',`Recogí <em>${POWERS[it.id].name}</em>: el golpe vale ahora <em>${f(V0+BEN*corrScore().k,1)}</em>, pero mi puntaje subió.`);
+        if(corr.cfg.onPick) corr.cfg.onPick(it);
+      }
+    });
+    if(corr.beam&&!corr.beam.hit&&p.x>=corr.beam.x){
+      corr.beam.hit=true;
+      if(corr.beam.lit){ spawnFx({world:true,x:corr.beam.x,y:GY-150,vy:-30,life:1.4,txt:'👁 Ojo de Red +'+f(W10,3),col:P.dmg,size:15}); say('n',`Me vio el Ojo de Red (F10). Yo no la controlo y sumó <em>${f(W10,3)}</em> a mi puntaje.`); unlock('f10'); }
+      else { spawnFx({world:true,x:corr.beam.x,y:GY-150,vy:-30,life:1.2,txt:'👁 no me vio',col:P.ok,size:15}); say('n','El Ojo de Red no se encendió esta vez. Solo pasa en el 40% de los fraudes.'); }
+    }
+  }
+  if(corr.atk>0) corr.atk-=dt;
+  if(corr.gbump>0) corr.gbump-=dt;
+  if(corr.hintT>0) corr.hintT-=dt;
+}
+function corrAttack(){
+  if(corr.state!=='run') return;
+  corr.atk=.28;
+  if(Math.abs(player.x-corr.gx)>170){ corr.hintT=1.6; return; }
+  corr.state='resolve'; corr.cfg.onAttack();
+}
+function corrDraw(){
+  const cam=clip(player.x-CW*.35,0,Math.max(0,corr.len-CW));
+  backdrop(cam);
+  const sc=corrScore(), blocked=sc.bio||sc.score>sc.thr;
+  // arco de revisión (muestra el riesgo en vivo)
+  const ax=corr.gx-170-cam, col=blocked?P.dmg:P.ok;
+  ctx.globalAlpha=.9; ctx.fillStyle=col; ctx.fillRect(ax-26,GY-150,6,150); ctx.fillRect(ax+20,GY-150,6,150); ctx.fillRect(ax-26,GY-156,52,8); ctx.globalAlpha=.12; ctx.fillRect(ax-20,GY-148,40,148); ctx.globalAlpha=1;
+  text('revisión',ax,GY-164,11,col,'center',600);
+  // ojo de red
+  if(corr.beam&&corr.beam.show!==false){
+    const bx=corr.beam.x-cam; const lit=corr.beam.hit&&corr.beam.lit;
+    ctx.globalAlpha=lit?.5:.18; ctx.fillStyle=lit?P.dmg:P['fg-mute']; ctx.fillRect(bx-8,0,16,GY); ctx.globalAlpha=1;
+    emoji('👁',bx,60,28); text('F10 · no la controlas',bx,86,11,P['fg-dim'],'center',600);
+  }
+  // objetos
+  corr.items.forEach(it=>{
+    if(it.taken) return; const x=it.x-cam; if(x<-40||x>CW+40) return;
+    const y=GY-(it.air?118:26)+Math.sin(T*3+it.x)*4;
+    ctx.globalAlpha=.22; ctx.fillStyle=it.id===0?P.dmg:P.gold; ctx.beginPath(); ctx.arc(x,y,24,0,6.283); ctx.fill(); ctx.globalAlpha=1;
+    emoji(POWERS[it.id].icon,x,y+9,26);
+    const lab=it.id===0?'trampa':('F'+(it.id+1)+(corr.spy?' · '+f(corr.def.pesos[it.id-1]/sum(corr.def.pesos),2):' · +0.6'));
+    text(lab,x,y+32,10.5,it.id===0?P.dmg:P['fg-dim'],'center',600);
+  });
+  // guardián
+  const gx=corr.gx-cam, gs=corr.gsize;
+  ctx.save(); if(corr.gbump>0) ctx.translate(Math.sin(T*60)*5,0);
+  emoji('🛡️',gx,GY,gs,true); ctx.restore();
+  text(corr.tag,gx,GY-gs-8,11,P['fg-mute'],'center',500);
+  // clientes legítimos
+  corr.crowd.forEach(c=>{ const cx=(corr.gx-420+c.t*(260)+c.i*14)-cam; if(c.t<1){ ctx.fillStyle=c.b?P.dmg:P.info; ctx.globalAlpha=.8; ctx.beginPath(); ctx.arc(cx,GY-10-(c.i%3)*10,5,0,6.283); ctx.fill(); ctx.globalAlpha=1; } });
+  // ninja
+  const px=player.x-cam, py=GY-player.y, bob=(player.onGround&&corr.state==='run'&&(held('arrowright','arrowleft','d','a','right','left')))?Math.abs(Math.sin(player.t*14))*3:0;
+  emoji('🥷',px,py-bob,52,player.face<0);
+  if(corr.atk>0){ const a=corr.atk/.28; ctx.strokeStyle=P.gold; ctx.lineWidth=5; ctx.globalAlpha=a; ctx.beginPath(); ctx.arc(px+30*player.face,py-30,44,player.face>0?-1.1:Math.PI-1.1,player.face>0?1.1:Math.PI+1.1); ctx.stroke(); ctx.globalAlpha=1; }
+  drawFx(cam);
+  // HUD del ninja
+  const bw=Math.min(260,CW-40), bx=CW/2-bw/2;
+  ctx.fillStyle=P.panel; ctx.globalAlpha=.85; rr(bx-10,8,bw+20,50,10); ctx.fill(); ctx.globalAlpha=1; ctx.strokeStyle=P.border; ctx.lineWidth=1; rr(bx-10,8,bw+20,50,10); ctx.stroke();
+  ctx.fillStyle=P.panel2; rr(bx,18,bw,12,6); ctx.fill();
+  ctx.fillStyle=blocked?P.dmg:P.ok; rr(bx,18,Math.max(8,bw*clip(sc.score/.8,0,1)),12,6); ctx.fill();
+  ctx.fillStyle=P.gold; ctx.fillRect(bx+bw*clip(sc.thr/.8,0,1)-1.5,13,3,22);
+  text((corr.cfg.hudLabel||'puntaje')+' '+f(sc.score,3)+' · umbral '+f(sc.thr,3),CW/2,48,11.5,P['fg-dim'],'center',500);
+  const bag=corr.sel.map((v,i)=>v?POWERS[i].icon:'').join(' ').trim();
+  text('Mochila: '+(bag||'vacía'),12,22,12,P['fg-dim'],'left',500);
+  text('Golpe vale '+f(V0+BEN*sc.k,1),CW-12,22,12,P.gold,'right',700);
+  // avisos
+  if(corr.state==='run'){
+    const near=Math.abs(player.x-corr.gx)<=170;
+    if(near) text('¡ESPACIO para atacar!',CW/2,GY-70,16,P.gold,'center',700);
+    else if(corr.hintT>0) text('Acércate al Guardián para atacar',CW/2,GY-70,14,P.dmg,'center',600);
+    else if(player.x<200) text('→ avanza · ↑ salta · recoge señales',CW/2,GY-70,13,P['fg-mute'],'center',500);
+  }
+  if(corr.state==='result') text(corr.resultTxt||'Enter: siguiente intento',CW/2,GY-70,15,P.gold,'center',700);
+}
+
+/* =====================================================================
+   MISIÓN 1 · el ninja cruza la revisión
+   ===================================================================== */
+const M1={n:0,max:6,goal:8,botin:0,bl:0,ps:0,done:false};
+function m1Reset(){
+  Object.assign(M1,{n:0,botin:0,bl:0,ps:0,done:false});
+  $('m1end').hidden=true; $('m1fx').textContent='Ataca una vez para ver el costo del Guardián.';
+  $('m1crowd').innerHTML=Array(40).fill('<i class="e"></i>').join(''); $('m1crowdTxt').textContent='';
+  m1Update(); corr.def=NB; corr.gsize=60; corr.tag='Guardián Nequi';
+  corrReset({len:2400,x0:470,gap:182,trapX:330,beam:true,beamX:1980,onAttack:m1Attack,hudLabel:'puntaje'});
+  say('n','Seis intentos para llevarme 8 monedas. Cada señal que recoja vale más, pero ¿cuánto riesgo?');
+  say('g','Reviso a todos con las mismas reglas. Si el puntaje supera mi umbral, bloqueo.');
+}
+function m1Update(){ $('m1n').textContent=M1.n+' / '+M1.max; $('m1botin').textContent=f(M1.botin,1); $('m1bl').textContent=M1.bl; }
+function m1Attack(){
+  const sc=corrScore(), blocked=sc.bio||sc.score>NB.umbral, loot=blocked?0:V0+BEN*sc.k;
+  const crowd=genLegit(40).map(r=>clasif(NB,r));
+  corr.crowd=crowd.slice(0,14).map((b,i)=>({i,b,t:0})); const t0=T;
+  corr.crowd.forEach(c=>{c.t=0;}); corr._ct=t0;
+  corr.gbump=.4;
+  const pxg=corr.gx;
+  if(blocked){
+    spawnFx({world:true,x:pxg,y:GY-100,vy:-40,life:1.4,txt:sc.bio?'🎭 biometría falló':'🚫 bloqueado',col:P.dmg,size:17});
+    say('g',sc.bio?'La biometría falló: bloqueo directo, ni miro las demás señales.':`Puntaje <em>${f(sc.score,3)}</em> contra umbral <em>${f(NB.umbral,3)}</em>. Bloqueado.`);
+  } else {
+    for(let i=0;i<10;i++) spawnFx({world:true,x:pxg,y:GY-80,vx:(rand()-.5)*220,vy:-200-rand()*120,g:700,life:1.2,r:5,col:P.gold});
+    spawnFx({world:true,x:pxg,y:GY-110,vy:-40,life:1.4,txt:'🪙 +'+f(loot,1),col:P.gold,size:18});
+    say('g',`Puntaje <em>${f(sc.score,3)}</em>, bajo mi umbral. Lo dejo pasar y pierdo <em>${f(loot,1)}</em>.`);
+  }
+  M1.n++; M1.botin+=loot; if(blocked)M1.bl++; else M1.ps++;
+  const fp=PREV*loot, pp=(1-PREV)*CFP*FPR_NB, nb=crowd.filter(Boolean).length;
+  $('m1fx').innerHTML=`fraude que pasó: 0.02 × ${f(loot,2)} = <b>${f(fp,4)}</b><br>clientes bloqueados: 0.98 × 0.15 × ${f(FPR_NB,3)} = <b>${f(pp,4)}</b><br>costo total = <b>${f(fp+pp,4)}</b>`;
+  $('m1crowd').innerHTML=crowd.map(b=>`<i class="${b?'b':''}"></i>`).join('');
+  $('m1crowdTxt').innerHTML=`<b>${nb}</b> de 40 clientes legítimos bloqueados (rojo). Aunque atrapes al ninja, Nequi sigue pagando por ellos.`;
+  m1Update(); unlock('pagos'); if(M1.bl>0&&M1.ps>0) unlock('tradeoff');
+  corr.resultTxt=M1.n>=M1.max?'':'Enter: siguiente intento';
+  corr.state='result';
+  if(M1.n>=M1.max) setTimeout(m1Finish,1200);
+}
+function m1Finish(){
+  const thr=NB.umbral*WS; let best=-1,bset=[];
+  for(let m=0;m<256;m++){let s=0,k=0,set=[];for(let b=0;b<8;b++)if((m>>b)&1){s+=NB.pesos[b];k++;set.push(POWERS[b+1].name);}
+    const v=V0+BEN*k, ev=(1-P_F10)*(s<=thr?v:0)+P_F10*(s+NB.pesos[8]<=thr?v:0);
+    if(ev>best+1e-12){best=ev;bset=set;}}
+  M1.done=true; markDone('m1'); unlock('tradeoff');
+  const win=M1.botin>=M1.goal;
+  $('m1endT').textContent=win?'Reto cumplido':'Nequi te contuvo';
+  $('m1endP').innerHTML=`Robaste <b>${f(M1.botin,1)}</b> de ${M1.goal} en ${M1.max} intentos (${M1.bl} bloqueos). La mejor combinación de señales contra este Guardián es <b>${bset.length?bset.join(' + '):'ninguna'}</b>, con un botín esperado de <b>${f(best,2)}</b> por intento (${f(best*M1.max,1)} en ${M1.max}). Es una mejor respuesta calculada exacta: una señal más compensa el +0.6 solo mientras el puntaje siga bajo el umbral. Por eso apagar todo ya no es gratis y encender todo tampoco es rentable.`;
+  $('m1end').hidden=false; corr.resultTxt='Pulsa R para reiniciar el reto';
+  say('g','Ya viste cómo decido. Cámbiate de lado: en la misión 2 el que fija el umbral eres tú.');
+}
+const mis1={
+  enter(){ setTouch('corr'); setKeys(`<span>${K('←')}${K('→')} avanzar</span><span>${K('↑')} saltar</span><span>${K('Espacio')} atacar</span><span>${K('E')} espiar pesos</span><span>${K('Enter')} siguiente intento</span><span>${K('R')} reiniciar</span>`);
+    if(M1.n===0&&corr.state!=='run') m1Reset(); else if(!corr.items.length||corr.cfg.len!==2400||corr.def!==NB) m1Reset(); },
+  update(dt){ corrUpdate(dt); if(corr.crowd.length) corr.crowd.forEach(c=>{c.t=Math.min(1.2,(T-corr._ct)*.9);}); },
+  draw(){ corrDraw(); },
+  press(k){
+    if(k===' '||k==='x') corrAttack();
+    else if(k==='e'){ corr.spy=!corr.spy; if(corr.spy) say('g',`Alguien está mirando mis pesos. Mi umbral es <em>${f(NB.umbral,3)}</em> y el puntaje es la suma de pesos dividida entre ${f(WS,2)}.`); }
+    else if(k==='enter'&&corr.state==='result'&&M1.n<M1.max) corrReset(corr.cfg);
+    else if(k==='r') m1Reset();
+  }
+};
+$('m1restart').addEventListener('click',m1Reset);
+
+/* =====================================================================
+   MISIÓN 2 · el Guardián fija su umbral con ↑/↓
+   ===================================================================== */
+const STY=[{n:'Sigiloso',p:0,d:'No enciende ninguna señal controlable. Solo lo delata F10, que él no puede apagar.'},
+           {n:'Agresivo',p:.3,d:'Enciende cada señal F2–F9 con 30% de probabilidad para robar más por intento.'}];
+const M2={r:0,u:.25,fixed:false,res:[],free:false,fp:0,locked:false};
+const GMAX=.8;
+const g2={orbs:[],sp:0,cnt:{fc:0,fp:0,cb:0,cp:0},gb:0};
+function m2Style(){return M2.free?{n:'Estilo libre',p:M2.fp,d:'Elige otro estilo de ninja en el menú de abajo.'}:STY[M2.r];}
+function m2Draw(){
+  const st=m2Style(); $('m2style').textContent=st.n+' ('+Math.round(st.p*100)+'%)'; $('m2desc').textContent=st.d;
+  const c=costoExacto({pesos:NB.pesos,umbral:M2.u},st.p);
+  $('m2uLbl').textContent=f(M2.u,3); $('m2u').value=M2.u;
+  $('m2rec').textContent=f(c.recall*100,0)+'%'; $('m2fpr').textContent=f(c.fpr*100,1)+'%'; $('m2cost').textContent=f(c.costo,4);
+  const mx=.07; $('m2sf').style.width=(c.pf/mx*100)+'%'; $('m2sp').style.width=(c.pp/mx*100)+'%';
+}
+function m2Curve(showDots){
+  const st=m2Style(), pts=[]; let best={u:0,c:1e9};
+  for(let u=.05;u<=.7001;u+=.005){const c=costoExacto({pesos:NB.pesos,umbral:u},st.p).costo;pts.push([u,c]);if(c<best.c-1e-12)best={u,c};}
+  const mine=costoExacto({pesos:NB.pesos,umbral:M2.u},st.p).costo;
+  const mx=Math.ceil(Math.max.apply(null,pts.map(p=>p[1]))*100+.5)/100;
+  lineChart($('m2chart'),{w:480,h:210,xmin:.05,xmax:.7,ymin:0,ymax:mx,xt:[.1,.2,.3,.4,.5,.6,.7],xf:t=>t.toFixed(1),yt:[0,mx/2,mx],yf:t=>f(t,3),xl:'umbral del Guardián',
+    series:[{pts,c:'var(--dmg)'}],vl:[{x:.15,c:'var(--info)',dash:'4 3'},{x:.40,c:'var(--gold)',dash:'4 3'}],
+    dots:showDots?[{x:best.u,y:best.c,c:'var(--ok)'},{x:M2.u,y:mine,c:'var(--fg)'}]:[]});
+  $('m2leg').hidden=false; return {best,mine};
+}
+function g2Reset(){ g2.orbs=[]; g2.sp=0; g2.cnt={fc:0,fp:0,cb:0,cp:0}; }
+function g2Spawn(){
+  const st=m2Style(), fraud=rand()<.2; let score,f1=false;
+  if(fraud){ let n=0; for(let j=0;j<8;j++) if(rand()<st.p) n+=NB.pesos[j]; if(rand()<P_F10) n+=NB.pesos[8]; score=n/WS; }
+  else { const r=genLegit(1)[0]; let n=0; for(let j=0;j<8;j++) if(r[j+1]) n+=NB.pesos[j]; if(r[9]) n+=NB.pesos[8]; score=n/WS; f1=!!r[0]; if(f1) score=GMAX; }
+  g2.orbs.push({x:120,score,fraud,f1,dead:0,done:false,jit:(rand()-.5)*8});
+}
+const scoreY=s=>GY-14-clip(s/GMAX,0,1)*(GY-70);
+const BXf=()=>CW-170;
+function m2Fix(){
+  if(M2.locked) return;
+  const st=m2Style(); const {best,mine}=m2Curve(true); const gap=(mine-best.c)/best.c; M2.locked=true;
+  $('m2curveTxt').textContent='El punto verde es el óptimo; el blanco es el tuyo. Los saltos aparecen porque los pesos son discretos: cada señal extra cruza el umbral de golpe.';
+  $('m2fb').innerHTML=gap<=.03?`<b style="color:var(--ok)">Casi óptimo.</b> Tu costo es ${f(mine,4)} y el mejor posible es ${f(best.c,4)} (umbral ${f(best.u,3)}).`:`Pudiste hacerlo mejor: tu costo es ${f(mine,4)} y el mejor posible es ${f(best.c,4)} con umbral ${f(best.u,3)} (${f(gap*100,0)}% más caro).`;
+  say('g',gap<=.03?'Ese umbral me conviene contra este ninja.':`Contra un ninja ${st.n.toLowerCase()} un umbral de <em>${f(best.u,3)}</em> me costaría menos.`);
+  say('n',st.p===0?'Si Nequi se pone estricto contra mí, bloquea clientes y no gana nada: yo casi no enciendo señales.':'Si Nequi es laxo, mis señales no lo alertan y robo mucho más.');
+  unlock('nosuma0');
+  if(!M2.free){ M2.res[M2.r]={n:st.n}; $('m2next').hidden=false; $('m2next').textContent=(M2.r<STY.length-1?'Siguiente ninja':'Ver conclusión')+' (Enter)'; $('m2fix').disabled=true; }
+}
+function m2Next(){
+  if(M2.r<STY.length-1){ M2.r++; M2.locked=false; $('m2next').hidden=true; $('m2fix').disabled=false; $('m2fb').textContent=''; $('m2chart').innerHTML=''; $('m2leg').hidden=true; $('m2curveTxt').textContent='Fija tu umbral para ver la curva completa y compararte con el óptimo.'; g2Reset(); m2Draw(); say('n','Cambio de estilo. A ver qué haces ahora.'); }
+  else m2Summary();
+}
+function m2Summary(){
+  const rows=STY.map(s=>{const e=costoExacto({pesos:NB.pesos,umbral:.15},s.p).costo,l=costoExacto({pesos:NB.pesos,umbral:.40},s.p).costo;return {n:s.n,e,l,best:e<=l?'ESTRICTO (0.15)':'LAXO (0.40)'};});
+  $('m2tbl').innerHTML='<tr><th>Ninja</th><th class="n">Costo ESTRICTO</th><th class="n">Costo LAXO</th><th>Conviene</th></tr>'+rows.map(r=>`<tr><td>${r.n}</td><td class="n">${f(r.e,4)}</td><td class="n">${f(r.l,4)}</td><td><b>${r.best}</b></td></tr>`).join('');
+  $('m2sumTxt').innerHTML=`Tu mejor umbral cambió con el ninja. Contra el ${rows[0].n.toLowerCase()} conviene ${rows[0].best.split(' ')[0]} y contra el ${rows[1].n.toLowerCase()} conviene ${rows[1].best.split(' ')[0]}. Esa dependencia es la <b>mejor respuesta</b>. Y como ninguna jugada es la mejor contra todo, el equilibrio no puede estar en un extremo.`;
+  $('m2sum').hidden=false; M2.free=false; M2.fixed=true; markDone('m2'); unlock('mejorresp');
+  say('g','Con ninja sigiloso me conviene ser laxo; con uno agresivo, estricto. Mi mejor jugada depende de la tuya.');
+  say('n','Y la mía depende de la de Nequi. Eso lo jugamos a la vez en la misión 4.');
+  $('m2next').hidden=true; M2.locked=false; $('m2fix').disabled=false;
+}
+const mis2={
+  enter(){ setTouch('thr'); setKeys(`<span>${K('↑')}${K('↓')} subir / bajar el hueco del escudo</span><span>${K('Enter')} fijar umbral y luego siguiente</span>`); g2Reset(); m2Draw(); say('g','Mis pesos ya están fijos. Solo decido qué tan estricto ser.'); },
+  update(dt){
+    if(!M2.locked){
+      const up=held('arrowup','w','up'), dn=held('arrowdown','s','down');
+      if(up||dn){ M2.u=clip(M2.u+(up?1:0)*.14*dt-(dn?1:0)*.14*dt,.05,.7); m2Draw(); }
+    }
+    g2.sp-=dt; if(g2.sp<=0){ g2.sp=.3; g2Spawn(); }
+    const bx=BXf(), st=m2Style();
+    g2.orbs.forEach(o=>{
+      if(o.dead>0){ o.dead-=dt; return; }
+      o.x+=170*dt;
+      if(!o.done&&o.x>=bx){ o.done=true; const blocked=o.f1||o.score>M2.u;
+        if(blocked){ o.dead=.35; o.blk=true; if(o.fraud)g2.cnt.fc++; else g2.cnt.cb++; spawnFx({x:bx,y:scoreY(o.score),vx:(rand()-.5)*60,vy:-30,life:.5,r:4,col:o.fraud?P.ok:P.dmg}); }
+        else { if(o.fraud){g2.cnt.fp++; spawnFx({x:bx+30,y:scoreY(o.score)-10,vy:-40,life:1,txt:'−botín',col:P.dmg,size:12});} else g2.cnt.cp++; }
+      }
+    });
+    g2.orbs=g2.orbs.filter(o=>o.x<CW+30&&!(o.dead<=0&&o.blk));
+  },
+  draw(){
+    backdrop(0);
+    const bx=BXf(), ty=scoreY(M2.u);
+    // pared del escudo por encima del hueco
+    ctx.fillStyle=P.info; ctx.globalAlpha=.35; ctx.fillRect(bx-7,0,14,ty); ctx.globalAlpha=1;
+    ctx.fillStyle=P.info; ctx.fillRect(bx-7,ty-3,14,3);
+    ctx.strokeStyle=P.gold; ctx.setLineDash([6,5]); ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(0,ty); ctx.lineTo(CW,ty); ctx.stroke(); ctx.setLineDash([]);
+    text('umbral '+f(M2.u,3),70,ty-6,12,P.gold,'left',700);
+    text('puntaje de riesgo ↑',10,24,11,P['fg-mute'],'left',500);
+    // orbes
+    g2.orbs.forEach(o=>{ const y=scoreY(o.score)+o.jit; ctx.globalAlpha=o.dead>0?o.dead/.35:1; ctx.fillStyle=o.fraud?P.dmg:P.info; ctx.beginPath(); ctx.arc(o.x,y,o.fraud?8:6,0,6.283); ctx.fill(); ctx.globalAlpha=1; });
+    // personajes
+    emoji('🥷',60,GY,52); text('Ninja · '+m2Style().n,60,GY-62,11,P['fg-mute'],'center',500);
+    ctx.save(); if(g2.gb>0) ctx.translate(Math.sin(T*60)*4,0); emoji('🛡️',CW-70,GY,60,true); ctx.restore();
+    text('Tú (Guardián)',CW-70,GY-70,11,P['fg-mute'],'center',500);
+    drawFx(0);
+    const c=g2.cnt; text(`fraude atrapado ${c.fc} · pasó ${c.fp}  |  clientes bloqueados ${c.cb} · pasaron ${c.cp}`,CW/2,CH-14,12,P['fg-dim'],'center',500);
+    if(M2.locked) text('Umbral fijado · Enter para seguir',CW/2,CH/2,16,P.gold,'center',700);
+  },
+  press(k){ if(k==='enter'){ if(!M2.locked) m2Fix(); else if(!$('m2next').hidden) m2Next(); } }
+};
+$('m2u').addEventListener('input',e=>{ if(M2.locked) return; M2.u=+e.target.value; m2Draw(); });
+$('m2fix').addEventListener('click',m2Fix); $('m2next').addEventListener('click',m2Next);
+$('m2free').addEventListener('change',e=>{M2.free=true;M2.fp=+e.target.value;M2.locked=false; $('m2fix').disabled=false; $('m2next').hidden=true; $('m2fb').textContent=''; g2Reset(); m2Draw(); m2Curve(false);});
+
+/* =====================================================================
+   MISIÓN 3 · el Guardián evoluciona (μ+λ) entre oleadas
+   ===================================================================== */
+const M3={round:1,total:8,hist:[],def:[],best:null,busy:false,botin:0,loots:[],costs:[],comp:null,done:false,skip:false};
+const F10_ROUND=3, pF10=r=>r>=F10_ROUND?P_F10:0;
+function m3Hud(recall,costo){
+  if(recall===null){$('m3rec').textContent='—';$('m3cost').textContent='—';$('m3recf').style.width='0%';$('m3costf').style.width='0%';}
+  else{$('m3rec').textContent=f(recall*100,1)+'%';$('m3recf').style.width=f(recall*100,1)+'%';$('m3cost').textContent='$'+f(costo,4);$('m3costf').style.width=Math.min(costo*1800,100).toFixed(1)+'%';}
+  $('m3botin').textContent=f(M3.botin,1);$('m3botf').style.width=Math.min(M3.botin/(M3.total*60)*100,100)+'%';
+  const r=Math.min(M3.round,M3.total);$('m3round').textContent=r+' / '+M3.total;$('m3rf').style.width=(r/M3.total*100)+'%';
+}
+const GICON=['🛡️','🛡️','🏰','🏰','🗿'];
+function m3Charts(){
+  const L=M3.loots.map((v,i)=>[i+1,v]), C=M3.costs.map((v,i)=>[i+1,v]);
+  const mx=Math.max(10,Math.ceil(Math.max.apply(null,L.map(p=>p[1]).concat([1]))/10)*10);
+  const mc=Math.max(.04,Math.ceil(Math.max.apply(null,C.map(p=>p[1]).concat([.01]))*100+.5)/100);
+  const xs={w:460,h:150,xmin:1,xmax:M3.total,xt:[1,2,3,4,5,6,7,8],xl:'oleada'};
+  lineChart($('m3chart'),Object.assign({ymin:0,ymax:mx,yt:[0,mx/2,mx],series:[{pts:L,c:'var(--gold)',dots:true}]},xs));
+  lineChart($('m3chart2'),Object.assign({ymin:0,ymax:mc,yt:[0,mc/2,mc],yf:t=>f(t,3),series:[{pts:C,c:'var(--dmg)',dots:true}]},xs));
+}
+function m3NewRun(){
+  corr.def=M3.best; corr.gsize=Math.min(92,56*(1+Math.min(M3.round,8)*.05)); corr.tag='Guardián Nequi · gen. '+M3.round;
+  corrReset({len:1500,x0:380,gap:96,trapX:250,beam:false,onAttack:m3Attack,hudLabel:'puntaje (sin F10)'});
+}
+function m3Reset(){
+  Object.assign(M3,{round:1,hist:[],def:Array.from({length:MU},crearDef),busy:false,botin:0,loots:[],costs:[],comp:null,done:false,skip:false});
+  M3.best=M3.def[0];
+  $('m3end').hidden=true; $('chamber').hidden=true;
+  $('m3dots').innerHTML=Array(60).fill('<i class="e"></i>').join(''); $('m3fx').textContent='Ataca para ver los números.';
+  m3Hud(null,null); m3Charts(); m3NewRun();
+  say('g','Empiezo con pesos al azar. Cada vez que me ataques, mis versiones se cruzan, mutan y compiten.');
+  say('n','Voy a probar si repetir la misma ruta funciona o si me conviene cambiar.');
+}
+function evolveTrace(def,hist,pf){
+  const parents=def.map(d=>Object.assign({},d,{costo:costoVs(d,hist,80,pf),_kid:false}));
+  const pick=()=>Math.floor(rand()*parents.length);
+  const i=pick(),j=pick(); const child=cruzar(parents[i],parents[j]); const mut=mutar(child);
+  const kids=[mut]; for(let k=1;k<LAM;k++) kids.push(mutar(cruzar(parents[pick()],parents[pick()])));
+  kids.forEach(k=>{k.costo=costoVs(k,hist,80,pf);k._kid=true;});
+  const all=parents.concat(kids).sort((a,b)=>a.costo-b.costo);
+  const next=all.slice(0,MU).map(d=>{const c=Object.assign({},d);delete c._kid;return c;});
+  return {parents,i,j,child,mut,kids,all,next};
+}
+function m3Attack(){
+  M3.busy=true;
+  const probs=corr.sel.map(v=>v?1:0);
+  const used=POWERS.filter((p,i)=>corr.sel[i]).map(p=>p.name);
+  M3.hist.push(probs); if(M3.hist.length>4) M3.hist=M3.hist.slice(-4);
+  const pf=pF10(M3.round), F=genFraude(probs,60,pf);
+  let vp=0,botin=0; const wave=[];
+  F.forEach(r=>{ if(clasif(M3.best,r)){vp++;wave.push(true);} else {botin+=valorFila(r);wave.push(false);} });
+  M3.botin+=botin; M3.loots.push(botin);
+  $('m3dots').innerHTML=wave.map(d=>`<i class="${d?'det':'pas'}"></i>`).join('');
+  corr.gbump=.4; spawnFx({world:true,x:corr.gx,y:GY-110,vy:-40,life:1.4,txt:'🪙 +'+f(botin,1),col:P.gold,size:18});
+  say('n',`Oleada ${M3.round}: ${used.length?used.join(', '):'ataque silencioso'}. Me detectaron <em>${vp}</em> de 60 y me llevé <em>${f(botin,1)}</em>.`);
+  say('g','Estudio tus últimas jugadas y evoluciono para que me cuesten menos…');
+  const tr=evolveTrace(M3.def,M3.hist,pf);
+  M3.def=tr.next; M3.best=M3.def[0];
+  M3.comp=comp(M3.best,probs,400,pf); M3.costs.push(M3.best.costo);
+  corr.state='result'; corr.resultTxt='El Guardián está evolucionando…';
+  const finish=()=>{
+    corr.gbump=.5;
+    $('m3fx').innerHTML=`robado por intento = <b>${f(M3.comp.robado,3)}</b> · FPR = <b>${f(M3.comp.fpr,3)}</b><br>costo = 0.02·${f(M3.comp.robado,3)} + 0.98·0.15·${f(M3.comp.fpr,3)} = <b>${f(M3.comp.costo,4)}</b>`;
+    say('g',`Mi costo frente a tus jugadas quedó en <em>${f(M3.best.costo,4)}</em>. Umbral ahora: <em>${f(M3.best.umbral,3)}</em>.`);
+    if(M3.round+1===F10_ROUND){ say('g','Desde la próxima oleada tengo F10, el patrón de red. Aparece en el 40% de tus fraudes y tú no la controlas.'); unlock('f10'); }
+    m3Hud(M3.comp.recall,M3.best.costo); m3Charts();
+    unlock('mulambda'); if(M3.round>=2) unlock('coev');
+    M3.round++; M3.busy=false;
+    if(M3.round>M3.total) setTimeout(m3End,400); else { m3NewRun(); }
+  };
+  playChamber(tr,finish);
+}
+const CH_STEPS=['1 Evaluar','2 Cruce','3 Mutación','4 Hijos (λ=16)','5 Selección'];
+function shieldsHtml(list,opts){
+  const mn=Math.min.apply(null,list.map(d=>d.costo));
+  return '<div class="shields">'+list.map((d,i)=>`<div class="sh${opts.cls?opts.cls(d,i):''}${d.costo===mn&&!opts.nobest?' best':''}"><span class="ic">🛡️</span><b>${f(d.costo,4)}</b></div>`).join('')+'</div>';
+}
+function barsHtml(list){
+  const mx=Math.max.apply(null,list.map(d=>d.costo))*1.05||1;
+  return '<div class="bars">'+list.map((d,i)=>`<div class="brow${i<MU?' mark':' out'}"><span>${d._kid?'Hijo':'Padre'}</span><div class="bbar"><div style="width:${d.costo/mx*100}%;background:${d._kid?'var(--nequi2)':'var(--info)'}"></div></div><span style="text-align:right">${f(d.costo,4)}</span></div>`).join('')+'</div>';
+}
+function chHtml(step,tr){
+  const a=tr.parents[tr.i],b=tr.parents[tr.j];
+  if(step===0) return `<p>Mido a mis 6 versiones contra tus últimos ataques. Costo menor es mejor (borde verde).</p>`+shieldsHtml(tr.parents,{});
+  if(step===1) return `<p>Sorteo dos padres (pueden repetirse) y cruzo: cada gen del hijo queda entre los de sus padres.</p>`+shieldsHtml(tr.parents,{nobest:true,cls:(d,i)=>(i===tr.i||i===tr.j)?' pick':''})+`<div class="fx">umbral: ${f(a.umbral,3)} y ${f(b.umbral,3)} → hijo <b>${f(tr.child.umbral,3)}</b><br>peso F10: ${f(a.pesos[8],3)} y ${f(b.pesos[8],3)} → hijo <b>${f(tr.child.pesos[8],3)}</b></div>`;
+  if(step===2) return `<p>Muto al hijo: primero cambia σ y luego los genes se mueven con ese σ' nuevo.</p><div class="shields"><div class="sh pick"><span class="ic">✨</span><b>hijo</b></div></div><div class="fx">σ: ${f(tr.mut._s0,3)} → <b>${f(tr.mut.sigma,3)}</b><br>umbral: ${f(tr.child.umbral,3)} → <b>${f(tr.mut.umbral,3)}</b><br>peso F10: ${f(tr.child.pesos[8],3)} → <b>${f(tr.mut.pesos[8],3)}</b></div>`;
+  if(step===3) return `<p>Repito hasta tener 16 hijos y mido a cada uno contra los mismos ataques.</p>`+shieldsHtml(tr.kids,{nobest:true,cls:()=>' kid mini'});
+  return `<p>Padres e hijos compiten juntos: sobreviven los 6 de menor costo (resaltados). El resto desaparece.</p>`+barsHtml(tr.all);
+}
+function playChamber(tr,done){
+  if(!$('m3watch').checked||!$('m3watch2').checked){ done(); return; }
+  M3.skip=false; $('chamber').hidden=false; $('chSteps').innerHTML=CH_STEPS.map(s=>`<span>${s}</span>`).join('');
+  let step=0, finished=false;
+  const end=()=>{ if(finished) return; finished=true; done(); };
+  const show=()=>{
+    $('chSteps').querySelectorAll('span').forEach((s,i)=>{s.className=i===step?'on':(i<step?'done':'');});
+    $('chBody').innerHTML=chHtml(step,tr);
+    if(step===1) say('g','Cruce intermedio: mezclo dos versiones mías.');
+    if(step===2) say('g','Mutación gaussiana autoadaptativa: cambio hasta mi tamaño de paso σ.');
+    if(step===4) say('g','Selección (μ+λ): padres e hijos compiten y sobreviven los 6 mejores.');
+  };
+  const tick=()=>{
+    if(finished) return;
+    if(M3.skip){ step=4; show(); setTimeout(end,500); return; }
+    show();
+    if(step>=4){ setTimeout(end,1500); return; }
+    step++; setTimeout(tick,1500);
+  };
+  tick();
+}
+function m3End(){
+  M3.done=true; markDone('m3'); unlock('conv'); unlock('semillas');
+  const h=M3.loots, half=Math.floor(h.length/2), a=sum(h.slice(0,half)), b=sum(h.slice(half));
+  const d=M3.best, thr=d.umbral*sum(d.pesos), w10=d.pesos[8]; let best=-1,bset=[];
+  for(let m=0;m<256;m++){let s=0,k=0,set=[];for(let q=0;q<8;q++)if((m>>q)&1){s+=d.pesos[q];k++;set.push(POWERS[q+1].name);}
+    const pDet=s>thr?1:(s+w10>thr?P_F10:0), ev=(1-pDet)*(V0+BEN*k); if(ev>best+1e-12){best=ev;bset=set;}}
+  $('m3endT').textContent=b<a*.7?'El Guardián aprendió de ti':(b>a*1.05?'Le ganaste el ritmo al Guardián':'Empate de aprendizaje');
+  $('m3endP').innerHTML=`Botín en las primeras ${half} oleadas: <b>${f(a,1)}</b>. En las últimas ${h.length-half}: <b>${f(b,1)}</b>. Contra el Guardián final, la mejor combinación de señales (${bset.length?bset.join(' + '):'ninguna'}) roba ${f(best,2)} por intento. Si repetiste una ruta, el Guardián se adaptó a ella; cada partida termina con un Guardián distinto, por eso una corrida sola no basta. Aquí solo evoluciona el Guardián: tú eres un jugador, no una población.`;
+  $('m3end').hidden=false; corr.resultTxt='Pulsa R para jugar otra vez'; corr.state='result';
+  say('g','Mi costo se estabiliza, no desaparece: cada vez que cambias, tengo que volver a aprender.');
+}
+const mis3={
+  enter(){ setTouch('corr'); setKeys(`<span>${K('←')}${K('→')} avanzar</span><span>${K('↑')} saltar</span><span>${K('Espacio')} atacar</span><span>${K('Enter')} saltar animación</span><span>${K('R')} reiniciar</span>`);
+    if(!M3.def.length) m3Reset(); else if(!M3.busy&&!M3.done&&corr.cfg&&corr.cfg.len!==1500) m3NewRun(); m3Hud(M3.comp?M3.comp.recall:null,M3.comp?M3.best.costo:null); },
+  update(dt){ corrUpdate(dt); },
+  draw(){ corrDraw(); },
+  press(k){
+    if(k===' '||k==='x'){ if(M3.busy){M3.skip=true;} else corrAttack(); }
+    else if(k==='enter'){ M3.skip=true; }
+    else if(k==='r') m3Reset();
+  }
+};
+$('m3reset').addEventListener('click',m3Reset);
+
+/* =====================================================================
+   MISIÓN 4 · duelo simultáneo
+   ===================================================================== */
+const A2=[[-22.26,-29.82],[-34.89,-26.41]];   // pago Nequi ×1000 · filas: ESTRICTO, LAXO · columnas: AGRESIVO, SIGILOSO
+const B2=[[0.223,0.601],[1.432,1.000]];       // pago del ninja
+const QS=(A2[1][1]-A2[0][1])/(A2[0][0]-A2[0][1]-A2[1][0]+A2[1][1]);
+const PS=(B2[1][1]-B2[1][0])/(B2[0][0]-B2[1][0]-B2[0][1]+B2[1][1]);
+const RN=['ESTRICTO','LAXO'], CN=['AGRESIVO','SIGILOSO'];
+const expAtk=(col,p)=>p*B2[0][col]+(1-p)*B2[1][col];
+const expDef=(row,q)=>q*A2[row][0]+(1-q)*A2[row][1];
+const bestDef=c=>A2[0][c]>=A2[1][c]?0:1, bestAtk=r=>B2[r][0]>=B2[r][1]?0:1;
+const M4={role:'ninja',max:24,mine:[],n:0,sum:0,cells:[[0,0],[0,0]],last:null,reveal:false,mix:50,fin:false,state:'choose',t:0,shown:null};
+const keyName=()=>M4.role==='ninja'?['AGRESIVO','SIGILOSO']:['ESTRICTO','LAXO'];
+const eqKey=()=>M4.role==='ninja'?QS:PS, eqPay=()=>M4.role==='ninja'?expAtk(0,PS):expDef(0,QS);
+function m4Labels(){
+  setTouch('duel',[keyName()[0],keyName()[1],'🎲 Dado ('+M4.mix+'%)','◀ mezcla','mezcla ▶']);
+  const kk=M4.role==='ninja'?['A','S']:['E','L'];
+  setKeys(`<span>${K(kk[0])} ${keyName()[0]}</span><span>${K(kk[1])} ${keyName()[1]}</span><span>${K('D')} dado (${M4.mix}% ${keyName()[0]})</span><span>${K('←')}${K('→')} mezcla</span><span>${K('T')} cambiar de personaje</span><span>${K('V')} revelar matriz</span><span>${K('R')} reiniciar</span>`);
+  $('roleN').className='btn sm '+(M4.role==='ninja'?'n':'ghost'); $('roleG').className='btn sm '+(M4.role==='guard'?'g':'ghost');
+}
+function m4Reset(){
+  Object.assign(M4,{mine:[],n:0,sum:0,cells:[[0,0],[0,0]],last:null,reveal:false,fin:false,state:'choose',t:0,shown:null});
+  $('m4end').hidden=true; $('m4reveal').hidden=true; $('m4cycle').innerHTML='';
+  m4Labels(); m4Render();
+  if(M4.role==='ninja'){ say('n','Elijo agresivo o sigiloso sin ver qué hará Nequi.'); say('g','Yo elijo estricto o laxo a la vez. Pero me fijo en lo que hiciste las últimas 8 veces.'); }
+  else { say('g','Elijo estricto o laxo sin ver qué hará el ninja.'); say('n','Yo elijo agresivo o sigiloso a la vez. Pero me fijo en lo que hiciste las últimas 8 veces.'); }
+}
+function m4Render(){
+  const showAll=M4.reveal; let h='<tr><th></th><th>AGRESIVO</th><th>SIGILOSO</th></tr>';
+  for(let i=0;i<2;i++){h+=`<tr><th>${RN[i]}</th>`;for(let j=0;j<2;j++){
+    const seen=M4.cells[i][j]>0||showAll, isLast=M4.last&&M4.last[0]===i&&M4.last[1]===j;
+    const bd=showAll&&bestDef(j)===i, ba=showAll&&bestAtk(i)===j;
+    h+=seen?`<td class="${bd?'brd ':''}${ba?'bra ':''}${isLast?'last':''}"><span class="d">${f(A2[i][j],2)}</span> , <span class="a">${f(B2[i][j],3)}</span>${M4.cells[i][j]?`<span class="cnt">×${M4.cells[i][j]}</span>`:''}</td>`:'<td class="unk">?</td>';}
+    h+='</tr>';}
+  $('m4mx').innerHTML=h;
+  $('m4prog').textContent='Ronda '+M4.n+' de '+M4.max;
+  const pts=[]; let c=0; M4.mine.forEach((v,i)=>{c+=v?1:0;pts.push([i+1,c/(i+1)]);});
+  lineChart($('m4chart'),{w:480,h:190,xmin:1,xmax:M4.max,ymin:0,ymax:1,xt:[1,6,12,18,24],yt:[0,.25,.5,.75,1],yf:t=>t,xl:'ronda',
+    series:[{pts,c:'var(--nequi2)',dots:pts.length<30}],hl:M4.fin||M4.n>=8?[{y:eqKey(),c:'var(--gold)',dash:'5 3'}]:[]});
+  const k=(l,v)=>`<div class="kpi"><div class="l">${l}</div><div class="v sm">${v}</div></div>`;
+  const freq=M4.n?M4.mine.filter(Boolean).length/M4.n:null;
+  $('m4k').innerHTML=k('% '+keyName()[0],freq===null?'—':Math.round(freq*100)+'%')+k('Pago medio',M4.n?f(M4.sum/M4.n,M4.role==='ninja'?3:2):'—')+(M4.fin?k('Equilibrio '+keyName()[0],f(eqKey()*100,1)+'%')+k('Pago de equilibrio',f(eqPay(),M4.role==='ninja'?3:2)):'');
+}
+function m4Play(key){
+  if(M4.n>=M4.max||M4.state!=='choose') return;
+  const w=M4.mine.slice(-8), est=(w.filter(Boolean).length+1)/(w.length+2);
+  let i,j;
+  if(M4.role==='ninja'){ let strict=expDef(0,est)>=expDef(1,est); if(rand()<.12) strict=!strict; i=strict?0:1; j=key?0:1; }
+  else { let agr=expAtk(0,est)>expAtk(1,est); if(rand()<.12) agr=!agr; i=key?0:1; j=agr?0:1; }
+  const mine=M4.role==='ninja'?B2[i][j]:A2[i][j];
+  M4.mine.push(key); M4.n++; M4.sum+=mine; M4.cells[i][j]++; M4.last=[i,j];
+  M4.state='reveal'; M4.t=0; M4.shown={i,j,mine};
+  spawnFx({x:CW/2,y:CH/2+10,vy:-30,life:1.3,txt:'ninja '+f(B2[i][j],3)+' · Nequi '+f(A2[i][j],2),col:P.gold,size:14});
+  let streak=0; for(let t=M4.mine.length-1;t>=0&&M4.mine[t]===key;t--) streak++;
+  const opp=M4.role==='ninja'?'g':'n', myName=keyName()[key?0:1], resp=M4.role==='ninja'?(est>QS?'ESTRICTO':'LAXO'):(est<PS?'AGRESIVO':'SIGILOSO');
+  if(streak>=3) say(opp,`Llevas <em>${streak}</em> veces seguidas ${myName}. Mi mejor respuesta es ${resp}.`);
+  else say(opp,`Elegí ${M4.role==='ninja'?RN[i]:CN[j]}. Esta ronda: ninja ${f(B2[i][j],3)}, Nequi ${f(A2[i][j],2)}.`);
+  say(M4.role==='ninja'?'n':'g',`Jugué ${myName}: mi pago fue <em>${f(mine,M4.role==='ninja'?3:2)}</em>.`);
+  if(M4.n>=8){ $('m4reveal').hidden=false; unlock('ciclo'); }
+  if(M4.n>=M4.max) m4Finish();
+  m4Render();
+}
+function m4Finish(){
+  M4.fin=true; markDone('m4'); unlock('mixto'); unlock('eps');
+  const freq=M4.mine.filter(Boolean).length/M4.n, avg=M4.sum/M4.n, eq=eqKey(), ep=eqPay(), d=Math.abs(freq-eq);
+  $('m4endT').textContent=d<=.12?'Jugaste cerca del equilibrio':'El rival te leyó';
+  $('m4endP').innerHTML=`Tu frecuencia de ${keyName()[0]} fue <b>${Math.round(freq*100)}%</b> y la del equilibrio es <b>${f(eq*100,1)}%</b>. Tu pago medio fue <b>${f(avg,M4.role==='ninja'?3:2)}</b> y el de equilibrio <b>${f(ep,M4.role==='ninja'?3:2)}</b>. En el equilibrio cada bando mezcla justo lo necesario para que el otro quede indiferente y no pueda explotarlo; cuanto más te alejas de esa mezcla o más patrón dejas, más te explota la mejor respuesta del rival. Con 24 rondas el azar pesa mucho: lee esto como una dirección. Pulsa T para probar con el otro personaje.`;
+  $('m4end').hidden=false;
+}
+function m4Reveal(){
+  M4.reveal=true; m4Render();
+  const seq=[]; let r=0; const seen={};
+  while(!seen[r]){seen[r]=1;const c=bestAtk(r);const r2=bestDef(c);seq.push([r,c]);r=r2;}
+  $('m4cycle').innerHTML=seq.map(([rr,cc])=>`<span class="chip info">Nequi ${RN[rr]}</span><span style="color:var(--fg-mute)">→</span><span class="chip bad">ninja ${CN[cc]}</span><span style="color:var(--fg-mute)">→</span>`).join('')+`<span class="chip info">Nequi ${RN[r]}</span><span style="flex-basis:100%;font-size:12.5px;color:var(--fg-dim)">Barra azul: mejor respuesta de Nequi en esa columna. Barra roja: mejor respuesta del ninja en esa fila. Ninguna celda tiene ambas, así que no hay equilibrio en estrategias puras: el ciclo nunca cierra.</span>`;
+}
+function card(x,y,w,h,col,title,val){
+  ctx.fillStyle=P.panel; rr(x,y,w,h,12); ctx.fill(); ctx.strokeStyle=col; ctx.lineWidth=2; rr(x,y,w,h,12); ctx.stroke();
+  text(title,x+w/2,y+22,11,P['fg-mute'],'center',600); text(val,x+w/2,y+h/2+16,val.length>8?15:19,col,'center',700);
+}
+const mis4={
+  enter(){ m4Labels(); if(!M4.n) m4Reset(); else m4Render(); },
+  update(dt){ if(M4.state==='reveal'){ M4.t+=dt; if(M4.t>.9) M4.state='choose'; } },
+  draw(){
+    backdrop(0);
+    emoji('🥷',CW*.16,GY,56); text('Ninja'+(M4.role==='ninja'?' (tú)':''),CW*.16,GY-66,11,P['fg-mute'],'center',500);
+    emoji('🛡️',CW*.84,GY,60,true); text('Guardián'+(M4.role==='guard'?' (tú)':''),CW*.84,GY-72,11,P['fg-mute'],'center',500);
+    const cw=Math.min(130,CW*.2), ch=96, cy=44, cx1=CW/2-cw-10, cx2=CW/2+10;
+    const sh=M4.shown, reveal=M4.state==='reveal'&&sh;
+    card(cx1,cy,cw,ch,P.dmg,'NINJA',reveal?CN[sh.j]:'?'); card(cx2,cy,cw,ch,P.info,'GUARDIÁN',reveal?RN[sh.i]:'?');
+    if(M4.fin) text('Duelo terminado · T cambiar de personaje · R repetir',CW/2,cy+ch+34,14,P.gold,'center',700);
+    else if(M4.state==='choose'){ const kk=M4.role==='ninja'?['A','S']:['E','L']; text(`${kk[0]} ${keyName()[0]}  ·  ${kk[1]} ${keyName()[1]}  ·  D dado ${M4.mix}%`,CW/2,cy+ch+34,14,P.gold,'center',700); }
+    drawFx(0);
+    text('Ronda '+Math.min(M4.n+1,M4.max)+' de '+M4.max,CW/2,22,12,P['fg-dim'],'center',600);
+  },
+  press(k){
+    const a=M4.role==='ninja'?'a':'e', b=M4.role==='ninja'?'s':'l';
+    if(k===a||k==='z') m4Play(true);
+    else if(k===b||k==='x') m4Play(false);
+    else if(k==='d') m4Play(rand()<M4.mix/100);
+    else if(k==='arrowleft'){ M4.mix=clip(M4.mix-5,0,100); m4Labels(); }
+    else if(k==='arrowright'){ M4.mix=clip(M4.mix+5,0,100); m4Labels(); }
+    else if(k==='t'){ M4.role=M4.role==='ninja'?'guard':'ninja'; m4Reset(); }
+    else if(k==='v'&&!$('m4reveal').hidden) m4Reveal();
+    else if(k==='r') m4Reset();
+  }
+};
+$('m4reveal').addEventListener('click',m4Reveal);
+$('roleN').addEventListener('click',()=>{M4.role='ninja';m4Reset();});
+$('roleG').addEventListener('click',()=>{M4.role='guard';m4Reset();});
+
+/* ------------------ navegación y bucle ------------------ */
+const MIS={m1:mis1,m2:mis2,m3:mis3,m4:mis4};
+const done={};
+function markDone(m){done[m]=true;document.querySelector(`.mchip[data-m="${m}"]`).classList.add('done');}
+function go(id){
+  active=id;
+  document.querySelectorAll('.mis').forEach(s=>{s.hidden=s.id!==id;});
+  document.querySelectorAll('.mchip').forEach(t=>t.setAttribute('aria-selected',String(t.dataset.m===id)));
+  Object.keys(keys).forEach(k=>keys[k]=false); Object.keys(pad).forEach(k=>pad[k]=0);
+  $('arena').hidden=(id==='m5');
+  try{history.replaceState(null,'','#'+id);}catch(e){}
+  if(id==='m5'){ cur=null; renderCards(); return; }
+  cur=MIS[id]; resize(); cur.enter();
+  if(id==='m1'&&M1.n===0) {}
+}
+document.querySelectorAll('.mchip').forEach(t=>t.addEventListener('click',()=>go(t.dataset.m)));
+let last=0, palT=0;
+function frame(t){
+  const dt=Math.min((t-last)/1000,.05)*TS; last=t; T+=dt; palT-=dt; if(palT<=0){readPal();palT=1;}
+  if(cur){ cur.update(dt); updateFx(dt); cur.draw();
+    if(!hasFocus){ ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,CW,CH); text('Haz clic aquí para jugar con el teclado',CW/2,CH/2,18,'#ffffff','center',700); }
+  }
+  requestAnimationFrame(frame);
+}
+readPal(); resize();
+const h0=(location.hash||'').replace('#','');
+go(/^m[1-5]$/.test(h0)?h0:'m1');
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

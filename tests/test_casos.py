@@ -33,6 +33,10 @@ def test_busqueda():
     assert _fallidos(cp.casos_busqueda()) == []
 
 
+def test_juego_brecha():
+    assert _fallidos(cp.casos_juego()) == []
+
+
 def test_estrategia_evolutiva_reproduce_notebook(resultado_ee):
     assert _fallidos(cp.casos_evolutivo(resultado_ee, True)) == []
 

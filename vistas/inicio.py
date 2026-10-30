@@ -7,7 +7,9 @@ st.markdown(
     "Cada sprint aplicó una técnica del curso al mismo caso; esta aplicación las reúne en un solo flujo, "
     "desde la entrega de la tarjeta hasta la decisión de crédito.")
 
-st.page_link("vistas/evaluar.py", label="Evaluar una solicitud de crédito", icon=":material/arrow_forward:")
+c1, c2 = st.columns(2)
+c1.page_link("vistas/evaluar.py", label="Evaluar una solicitud de crédito", icon=":material/arrow_forward:")
+c2.page_link("vistas/juego.py", label="Jugar Brecha Nequi y entender el equilibrio", icon=":material/sports_esports:")
 
 st.subheader("Cómo se decide una solicitud")
 c1, c2, c3, c4 = st.columns(4)
@@ -41,6 +43,9 @@ st.dataframe(pd.DataFrame([
     {"Sprint": "3", "Técnica": "Teoría de juegos + coevolución",
      "Papel en el sistema": "Pone a prueba el defensor contra un atacante que se adapta y busca el equilibrio.",
      "Página": "3 · Teoría de juegos"},
+    {"Sprint": "3", "Técnica": "Juego «Brecha Nequi» (última entrega)",
+     "Papel en el sistema": "Explica jugando el trade-off de señales, el umbral, la EE y el equilibrio mixto.",
+     "Página": "3 · Juego Brecha Nequi"},
     {"Sprint": "4", "Técnica": "Lógica difusa (Mamdani)",
      "Papel en el sistema": "Sustituye las fronteras rígidas de C1, C2 y C4 por transiciones graduales.",
      "Página": "4 · Lógica difusa"},

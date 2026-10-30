@@ -181,6 +181,30 @@ def casos_busqueda():
     return out
 
 
+def casos_juego():
+    """Juego Brecha Nequi: la lógica portada debe dar lo mismo que el juego y su cuaderno."""
+    from core import juego_brecha as jb
+    eq = jb.equilibrio_inspeccion()
+    mejor = jb.mejor_combinacion()
+    sig_e, sig_l = jb.costo_exacto(jb.UMBRAL_ESTRICTO, 0.0)["costo"], jb.costo_exacto(jb.UMBRAL_LAXO, 0.0)["costo"]
+    agr_e, agr_l = jb.costo_exacto(jb.UMBRAL_ESTRICTO, 0.3)["costo"], jb.costo_exacto(jb.UMBRAL_LAXO, 0.3)["costo"]
+    html = jb.html_juego("m3", 1)
+    return [
+        _caso("Juego Brecha Nequi", "p* del duelo (cuaderno del juego: ≈ 0.533)", "0.533", f"{eq['p_estricto']:.3f}"),
+        _caso("Juego Brecha Nequi", "q* del duelo (cuaderno del juego: ≈ 0.213)", "0.213", f"{eq['q_agresivo']:.3f}"),
+        _caso("Juego Brecha Nequi", "Sin Nash en estrategias puras (ciclo de mejores respuestas)", "ninguno",
+              "ninguno" if not eq["puros"] else str(eq["puros"])),
+        _caso("Juego Brecha Nequi", "Mejor respuesta: contra ninja sigiloso conviene LAXO", "LAXO",
+              "LAXO" if sig_l < sig_e else "ESTRICTO"),
+        _caso("Juego Brecha Nequi", "Mejor respuesta: contra ninja agresivo conviene ESTRICTO", "ESTRICTO",
+              "ESTRICTO" if agr_e < agr_l else "LAXO"),
+        _caso("Juego Brecha Nequi", "La mejor combinación de señales no es ni ninguna ni todas", "0 < k < 8",
+              f"k = {mejor['n_señales']}", ok=0 < mejor["n_señales"] < 8),
+        _caso("Juego Brecha Nequi", "El HTML embebido conserva el juego y solo fija la misión inicial", "sí",
+              "sí" if "window.__mision='m3'" in html and "function m4Play" in html else "no"),
+    ]
+
+
 def casos_evolutivo(resultado_ee, por_defecto: bool):
     if not por_defecto:
         return [_caso("Estrategia evolutiva", "Reproducción del notebook", "parámetros 20/100/60/42",

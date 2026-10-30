@@ -9,6 +9,7 @@ Aplicación Streamlit que integra en un solo flujo el proyecto semestral de **Fu
 | 2 | Sistema experto | 18 reglas de fraude (F1–F9) y crédito (C1–C9) con encadenamiento hacia adelante y cortocircuito de seguridad. |
 | 3 | Estrategia evolutiva (μ+λ) | Calibra los pesos y el umbral del score de fraude (fitness = F1-score). |
 | 3 | Teoría de juegos + coevolución | Defensor contra atacante con pagos económicos; equilibrio verificado con ε-Nash, matriz de pagos y juego de inspección 2×2. |
+| 3 | Juego «Brecha Nequi» (última entrega) | El juego original embebido en la app, con una introducción visual y explicaciones calculadas con su misma lógica (mejor respuesta, curva de costo por umbral, ciclo sin Nash puro, equilibrio mixto). |
 | 4 | Lógica difusa (Mamdani) | Reemplaza las fronteras rígidas de score, carga de la cuota y DTI por un riesgo continuo de 0 a 100, con una zona de revisión manual. |
 
 > Todos los datos son simulados y todos los parámetros son supuestos académicos. No se usan datos ni sistemas reales de Nequi.
@@ -62,11 +63,13 @@ nequi-ia-app/
 │   ├── teoria_juegos.py      # S3 · coevolución con pagos económicos (v2) y análisis de equilibrio
 │   ├── teoria_juegos_v4.py   # S3 · versión simplificada v4 (supuestos propios)
 │   ├── difuso.py             # S4 · funciones de pertenencia, reglas y Mamdani
+│   ├── juego_brecha.py       # Lógica exacta del juego Brecha Nequi para las explicaciones
 │   ├── integracion.py        # Flujo integrado S2 → S3 → S2 → S4 y validación de entradas
 │   └── casos_prueba.py       # Casos de prueba compartidos por la UI y pytest
 ├── ui/
 │   ├── componentes.py        # Estilos, tarjetas de decisión y gráficos
 │   └── estado.py             # Estado de sesión y caché de cálculos
+├── assets/brecha_nequi.html  # Juego de la última entrega (copia sin cambios)
 ├── vistas/                   # Una página por sección
 ├── tests/test_casos.py
 ├── docs/ANALISIS.md

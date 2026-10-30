@@ -58,7 +58,7 @@ umbrales rígidos del motor de crédito (ver sección 5).
                       └─► riesgo 0–100 ─► bajo: APROBADO · medio: REVISIÓN MANUAL · alto: RECHAZO
 
  Páginas de componente: [S1] Logística A* · [S2] reglas y umbrales · [S3] EE · [S3] Teoría de juegos (v2 y v4)
- · [S4] diseño difuso · Validación (55 casos + coherencia EE/SE sobre 512 combinaciones)
+ · [S3] Juego Brecha Nequi · [S4] diseño difuso · Validación (casos en vivo + coherencia EE/SE sobre 512 combinaciones)
 ```
 
 Dependencias: el S3 consume las señales que produce el S2. El S4 construye sus conjuntos a partir de los
@@ -80,7 +80,35 @@ del flujo de crédito (la entrega ocurre después de la aprobación) y se presen
 | C8 | El código Python del SE dentro del HTML está truncado (se perdieron los `<` al exportar). | Se usó el espejo JavaScript del mismo archivo, que tiene las condiciones completas y los valores por defecto de `.get()`. |
 | C9 | La numeración de sprints no está explícita en los archivos. | Se asumió: A\* = 1, sistema experto = 2, evolutivos + teoría de juegos = 3, lógica difusa = 4 (la que el enunciado llama Sprint 4). |
 
-## 5. Justificación técnica de la lógica difusa (Sprint 4)
+## 5. Integración del juego «Brecha Nequi» (última entrega)
+
+**Qué es.** `Brecha Nequi.html` es un juego en canvas con cuatro misiones y un cuaderno de 12 conceptos, basado
+en el notebook v3:
+1. **El precio de cada poder** (ninja). Cada señal F2–F9 suma +0.6 al botín y peso al puntaje; F10 aparece en el
+   40 % de los intentos.
+2. **El umbral de Nequi** (Guardián). Se fija el umbral con ↑/↓ y se compara contra la curva de costo exacta.
+3. **El Guardián aprende** (ninja). El Guardián evoluciona con (μ+λ) = (6+16) contra los últimos 4 ataques.
+4. **Duelo simultáneo.** Matriz 2×2 en la que el rival responde a las últimas 8 jugadas; se compara con el
+   equilibrio mixto.
+
+**Cómo se integró.**
+- El HTML se copió **sin cambios** en `assets/brecha_nequi.html` y se embebe con `st.iframe`, que ajusta la altura
+  al contenido.
+- La única adaptación se hace al servirlo (`core/juego_brecha.py::html_juego`): la misión inicial se lee de una
+  variable en lugar de `location.hash`, que no existe dentro del iframe.
+- El botón «Reiniciar juego» recrea el iframe con una partida nueva.
+
+**Explicaciones.** Se portó a Python la lógica exacta del juego (`pExacto`, `costoExacto`, la mejor respuesta de la
+misión 1 y la solución por indiferencia de la misión 4). Así los diagramas y gráficos de la página salen de cálculos
+reales y no de valores escritos a mano. Las pruebas comprueban que dan lo mismo que el cuaderno del juego
+(p\* ≈ 0.533, q\* ≈ 0.213).
+
+**Contradicción C10.** El juego usa los parámetros del notebook **v3**: pesos del mejor defensor, umbral 0.254 y la
+matriz 2×2 de su sección 12. Ese notebook no está en la carpeta, así que estas constantes se toman del HTML tal
+cual. La página de Teoría de juegos calcula en vivo la v2 (p\* ≈ 0.559, q\* ≈ 0.214). Ambas versiones coinciden en
+la dirección del equilibrio y la diferencia se indica en la página del juego.
+
+## 6. Justificación técnica de la lógica difusa (Sprint 4)
 
 **Problema.** El motor de crédito decide con fronteras rígidas: `score < 600` rechaza (C1), `cuota/ingresos > 0.35`
 rechaza (C2) y `DTI > 0.70` rechaza (C4). Un score de 599 y uno de 600 reciben decisiones opuestas, y el sistema

@@ -11,7 +11,7 @@ st.caption("Casos ejecutados en vivo contra el código de la aplicación. Son lo
 with st.spinner("Ejecutando casos…"):
     res_ee = estado.entrenar_ee(20, 100, 60, 42)
     casos = (cp.casos_difuso() + cp.casos_integracion(res_ee["modelo"]) + cp.casos_sistema_experto()
-             + cp.casos_busqueda() + cp.casos_evolutivo(res_ee, True))
+             + cp.casos_busqueda() + cp.casos_juego() + cp.casos_evolutivo(res_ee, True))
 
 df = pd.DataFrame(casos)
 ok = int(df["ok"].sum())
